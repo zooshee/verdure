@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = [ "verdure", "verdure-context","verdure-core", "verdure-ioc", "verdure-macros"]
+
+[profile.dev]
+opt-level = 0
+debug = "full"
+
+[workspace.package]
+version = "0.0.1"
+edition = "2024"
+rust-version = "1.88.0"
+
+[workspace.dependencies]
+proc-macro2 = "1.0"
+quote = "1"
+syn = { version = "2.0", features = ["full"] }
+inventory = "0.3"
+dashmap = "6.1"
