@@ -23,3 +23,8 @@ quote = "1"
 syn = { version = "2.0", features = ["full"] }
 inventory = "0.3"
 dashmap = "6.1"
+# members
+verdure-core = { path = "verdure-core", version = "0.0.1" }
+verdure-ioc = { path = "verdure-ioc", version = "0.0.1" }
+verdure-macros = { path = "verdure-macros", version = "0.0.1" }
+verdure-context = { path = "verdure-context", version = "0.0.1" }
