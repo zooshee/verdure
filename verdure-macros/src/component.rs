@@ -1,5 +1,4 @@
 use proc_macro2::{Ident, TokenStream};
-use quote::__private::ext::RepToTokensExt;
 use quote::quote;
 use syn::{
     Attribute, Data, DeriveInput, Error, Field, Fields, FieldsNamed, GenericArgument,
