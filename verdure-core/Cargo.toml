@@ -8,5 +8,6 @@ authors.workspace = true
 license.workspace = true
 homepage.workspace = true
 readme.workspace = true
+description.workspace = true
 
 [dependencies]
