@@ -3,6 +3,11 @@ name = "verdure-ioc"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+repository.workspace = true
+authors.workspace = true
+license.workspace = true
+homepage.workspace = true
+readme.workspace = true
 
 [dependencies]
 verdure-core = { path = "../verdure-core" }
