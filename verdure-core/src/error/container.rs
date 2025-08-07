@@ -96,3 +96,85 @@ impl From<String> for ContainerError {
         ContainerError::new(ContainerErrorKind::Other, msg)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_container_error_creation() {
+        let error = ContainerError::not_found("test component");
+        assert_eq!(error.kind, ContainerErrorKind::NotFound);
+        assert_eq!(error.message, "test component");
+        assert!(error.source.is_none());
+    }
+
+    #[test]
+    fn test_container_error_display() {
+        let error = ContainerError::circular_dependency("ComponentA -> ComponentB -> ComponentA");
+        assert_eq!(
+            error.to_string(),
+            "Circular dependency detected: ComponentA -> ComponentB -> ComponentA"
+        );
+    }
+
+    #[test]
+    fn test_container_error_with_source() {
+        let source_error = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
+        let error = ContainerError::creation_failed("Failed to create component")
+            .with_source(source_error);
+        
+        assert_eq!(error.kind, ContainerErrorKind::CreationFailed);
+        assert!(error.source.is_some());
+    }
+
+    #[test]
+    fn test_container_error_from_string() {
+        let error: ContainerError = "test error message".into();
+        assert_eq!(error.kind, ContainerErrorKind::Other);
+        assert_eq!(error.message, "test error message");
+    }
+
+    #[test]
+    fn test_container_error_from_owned_string() {
+        let msg = String::from("test error message");
+        let error: ContainerError = msg.into();
+        assert_eq!(error.kind, ContainerErrorKind::Other);
+        assert_eq!(error.message, "test error message");
+    }
+
+    #[test]
+    fn test_all_error_kinds() {
+        let errors = vec![
+            ContainerError::not_found("not found"),
+            ContainerError::circular_dependency("circular"),
+            ContainerError::creation_failed("creation failed"),
+            ContainerError::type_cast_failed("cast failed"),
+            ContainerError::configuration("config error"),
+            ContainerError::other("other error"),
+        ];
+
+        let expected_kinds = vec![
+            ContainerErrorKind::NotFound,
+            ContainerErrorKind::CircularDependency,
+            ContainerErrorKind::CreationFailed,
+            ContainerErrorKind::TypeCastFailed,
+            ContainerErrorKind::Configuration,
+            ContainerErrorKind::Other,
+        ];
+
+        for (error, expected_kind) in errors.iter().zip(expected_kinds.iter()) {
+            assert_eq!(&error.kind, expected_kind);
+        }
+    }
+
+    #[test]
+    fn test_error_kind_display() {
+        assert_eq!(ContainerErrorKind::NotFound.to_string(), "Component not found");
+        assert_eq!(ContainerErrorKind::CircularDependency.to_string(), "Circular dependency detected");
+        assert_eq!(ContainerErrorKind::CreationFailed.to_string(), "Component creation failed");
+        assert_eq!(ContainerErrorKind::TypeCastFailed.to_string(), "Type cast failed");
+        assert_eq!(ContainerErrorKind::Configuration.to_string(), "Configuration error");
+        assert_eq!(ContainerErrorKind::Other.to_string(), "Other error");
+    }
+}
