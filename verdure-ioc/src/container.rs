@@ -209,3 +209,139 @@ impl ComponentFactory for ComponentContainer {
         component_any.downcast().ok()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ComponentInitializer;
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    #[derive(Debug)]
+    struct TestComponent {
+        value: u32,
+    }
+
+    impl TestComponent {
+        fn new(value: u32) -> Self {
+            Self { value }
+        }
+    }
+
+    #[derive(Debug)]
+    struct TestComponentWithDeps {
+        dependency: Arc<TestComponent>,
+        value: String,
+    }
+
+    static CREATION_COUNTER: AtomicU32 = AtomicU32::new(0);
+
+    impl ComponentInitializer for TestComponent {
+        type Dependencies = ();
+
+        fn __new(_deps: Self::Dependencies) -> Self {
+            CREATION_COUNTER.fetch_add(1, Ordering::SeqCst);
+            TestComponent::new(42)
+        }
+
+        fn __scope() -> crate::ComponentScope {
+            crate::ComponentScope::Singleton
+        }
+    }
+
+    impl ComponentInitializer for TestComponentWithDeps {
+        type Dependencies = (Arc<TestComponent>,);
+
+        fn __new(deps: Self::Dependencies) -> Self {
+            let (dependency,) = deps;
+            TestComponentWithDeps {
+                dependency,
+                value: "test".to_string(),
+            }
+        }
+
+        fn __scope() -> crate::ComponentScope {
+            crate::ComponentScope::Singleton
+        }
+    }
+
+    #[test]
+    fn test_component_descriptor() {
+        let desc1 = ComponentDescriptor::for_type::<TestComponent>();
+        let desc2 = ComponentDescriptor::new(TypeId::of::<TestComponent>(), None);
+        assert_eq!(desc1, desc2);
+
+        let desc_with_qualifier = ComponentDescriptor::with_qualifier::<TestComponent>("test");
+        assert_ne!(desc1, desc_with_qualifier);
+        assert_eq!(desc_with_qualifier.qualifier, Some("test"));
+    }
+
+    #[test]
+    fn test_container_creation() {
+        let container = ComponentContainer::new();
+        assert!(container.components.is_empty());
+        assert!(container.initializing.is_empty());
+        assert!(container.stats.is_empty());
+    }
+
+    #[test]
+    fn test_manual_component_registration() {
+        let container = ComponentContainer::new();
+        let test_component = Arc::new(TestComponent::new(100));
+        
+        container.register_component(test_component.clone());
+        
+        let retrieved: Option<Arc<TestComponent>> = container.get_component();
+        assert!(retrieved.is_some());
+        assert_eq!(retrieved.unwrap().value, 100);
+    }
+
+    #[test]
+    fn test_register_component_by_type_id() {
+        let container = ComponentContainer::new();
+        let test_component = Arc::new(TestComponent::new(200));
+        let type_id = TypeId::of::<TestComponent>();
+        
+        container.register_component_by_type_id(type_id, test_component);
+        
+        let retrieved = container.get_component_by_type_id(type_id);
+        assert!(retrieved.is_some());
+        
+        let downcast_component: Result<Arc<TestComponent>, _> = retrieved.unwrap().downcast();
+        assert!(downcast_component.is_ok());
+        assert_eq!(downcast_component.unwrap().value, 200);
+    }
+
+    #[test]
+    fn test_get_nonexistent_component() {
+        let container = ComponentContainer::new();
+        let result: Option<Arc<TestComponent>> = container.get_component();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_component_stats_default() {
+        let stats = ComponentStats::default();
+        assert!(stats.created_at.is_none());
+        assert!(stats.last_accessed.is_none());
+        assert_eq!(stats.access_count, 0);
+        assert_eq!(stats.creation_time, 0);
+    }
+
+    #[test]
+    fn test_component_descriptor_hash_and_eq() {
+        let desc1 = ComponentDescriptor::for_type::<TestComponent>();
+        let desc2 = ComponentDescriptor::for_type::<TestComponent>();
+        let desc3 = ComponentDescriptor::with_qualifier::<TestComponent>("test");
+
+        assert_eq!(desc1, desc2);
+        assert_ne!(desc1, desc3);
+
+        // Test hash by inserting into HashMap
+        let mut map = std::collections::HashMap::new();
+        map.insert(desc1.clone(), "value1");
+        map.insert(desc3.clone(), "value2");
+
+        assert_eq!(map.get(&desc2), Some(&"value1"));
+        assert_eq!(map.get(&desc3), Some(&"value2"));
+    }
+}
