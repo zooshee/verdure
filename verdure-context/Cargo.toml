@@ -11,3 +11,11 @@ readme.workspace = true
 description.workspace = true
 
 [dependencies]
+verdure-ioc = { workspace = true }
+dashmap = "6.1.0"
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.9"
+serde_yaml = "0.9"
+
+[features]
+default = []
