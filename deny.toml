@@ -1,0 +1,19 @@
+[graph]
+all-features = true
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+]
+exceptions = [
+    { allow = ["Unicode-3.0", "Unicode-DFS-2016"], crate = "unicode-ident" },
+]
+
+[bans]
+multiple-versions = "allow"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
