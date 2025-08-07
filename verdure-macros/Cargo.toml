@@ -19,4 +19,4 @@ syn = { workspace = true }
 
 [dev-dependencies]
 inventory = "0.3"
-verdure = { path = "../verdure" }
+verdure = { workspace = true }
