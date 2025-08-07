@@ -1,9 +1,89 @@
+//! Component factory trait and implementations
+//! 
+//! This module defines the `ComponentFactory` trait which provides methods for
+//! retrieving components from the IoC container with type safety.
+
 use std::any::{Any, TypeId};
 use std::sync::Arc;
 
+/// Trait for retrieving components from a container
+/// 
+/// `ComponentFactory` provides both type-erased and type-safe methods for
+/// retrieving component instances from the container. This trait is implemented
+/// by `ComponentContainer` to provide a clean API for component retrieval.
+/// 
+/// # Examples
+/// 
+/// ```rust
+/// use verdure_ioc::{ComponentFactory, ComponentContainer};
+/// use std::sync::Arc;
+/// 
+/// #[derive(Debug)]
+/// struct MyService {
+///     value: i32,
+/// }
+/// 
+/// let container = ComponentContainer::new();
+/// container.register_component(Arc::new(MyService { value: 42 }));
+/// 
+/// // Type-safe retrieval
+/// let service: Option<Arc<MyService>> = container.get_component();
+/// assert!(service.is_some());
+/// 
+/// // Type-erased retrieval
+/// let service_any = container.get_component_by_type_id(std::any::TypeId::of::<MyService>());
+/// assert!(service_any.is_some());
+/// ```
 pub trait ComponentFactory {
+    /// Retrieves a component instance by its TypeId
+    /// 
+    /// This method returns the component as a type-erased `Arc<dyn Any + Send + Sync>`,
+    /// which can be downcast to the specific type if needed.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `type_id` - The TypeId of the component to retrieve
+    /// 
+    /// # Returns
+    /// 
+    /// `Some(Arc<dyn Any + Send + Sync>)` if the component exists, `None` otherwise
     fn get_component_by_type_id(&self, type_id: TypeId) -> Option<Arc<dyn Any + Send + Sync>>;
 
+    /// Retrieves a component instance with compile-time type safety
+    /// 
+    /// This method provides a type-safe way to retrieve components from the container.
+    /// The compiler will ensure that the returned type matches the requested type.
+    /// 
+    /// # Type Parameters
+    /// 
+    /// * `T` - The type of component to retrieve. Must implement `Any + Send + Sync`
+    /// 
+    /// # Returns
+    /// 
+    /// `Some(Arc<T>)` if the component exists and can be downcast to type `T`, `None` otherwise
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// use verdure_ioc::{ComponentFactory, ComponentContainer};
+    /// use std::sync::Arc;
+    /// 
+    /// #[derive(Debug)]
+    /// struct DatabaseService {
+    ///     url: String,
+    /// }
+    /// 
+    /// let container = ComponentContainer::new();
+    /// let db_service = Arc::new(DatabaseService { url: "localhost:5432".to_string() });
+    /// container.register_component(db_service);
+    /// 
+    /// // Retrieve with type safety
+    /// let retrieved: Option<Arc<DatabaseService>> = container.get_component();
+    /// match retrieved {
+    ///     Some(service) => println!("Database URL: {}", service.url),
+    ///     None => println!("DatabaseService not found"),
+    /// }
+    /// ```
     fn get_component<T: Any + Send + Sync>(&self) -> Option<Arc<T>>;
 }
 

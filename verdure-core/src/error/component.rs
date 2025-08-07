@@ -1,13 +1,37 @@
+//! Component-specific error types and implementations
+//! 
+//! This module defines error types specifically related to component operations,
+//! including dependency resolution, instantiation, and lifecycle management.
+
 use crate::error::container::{ContainerError, ContainerErrorKind};
 use std::fmt;
 
+/// Error types specific to component operations
+/// 
+/// `ComponentError` represents various failure conditions that can occur during
+/// component creation, dependency injection, and component lifecycle management.
+/// 
+/// # Examples
+/// 
+/// ```rust
+/// use verdure_core::error::component::ComponentError;
+/// 
+/// let error = ComponentError::DependencyNotFound("DatabaseService".to_string());
+/// println!("{}", error); // Prints: "Dependency 'DatabaseService' not found"
+/// ```
 #[derive(Debug)]
 pub enum ComponentError {
+    /// A required dependency was not found in the container
     DependencyNotFound(String),
+    /// Failed to downcast a dependency to the expected type
     DowncastFailed(String),
+    /// A circular dependency was detected between components
     CircularDependency(String),
+    /// A configuration error occurred during component setup
     ConfigurationError(String),
+    /// Component creation failed for some reason
     CreationError(String),
+    /// The requested component was not found
     NotFound(String),
 }
 

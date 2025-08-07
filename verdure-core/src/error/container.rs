@@ -1,18 +1,51 @@
+//! Container-specific error types and implementations
+//! 
+//! This module defines error types specifically related to IoC container operations,
+//! including component resolution, dependency injection, and lifecycle management.
+
 use std::fmt;
+
+/// The main error type for container operations
+/// 
+/// `ContainerError` represents various failure conditions that can occur during
+/// container initialization, component creation, and dependency resolution.
+/// 
+/// # Examples
+/// 
+/// ```rust
+/// use verdure_core::error::container::{ContainerError, ContainerErrorKind};
+/// 
+/// let error = ContainerError::not_found("ComponentA not found");
+/// println!("{}", error); // Prints: "Component not found: ComponentA not found"
+/// ```
 #[derive(Debug)]
 pub struct ContainerError {
+    /// The specific kind of error that occurred
     pub kind: ContainerErrorKind,
+    /// A human-readable error message describing the issue
     pub message: String,
+    /// Optional source error that caused this error
     pub source: Option<Box<dyn std::error::Error + Send + Sync>>,
 }
 
+/// Enumeration of different types of container errors
+/// 
+/// This enum categorizes the various types of errors that can occur during
+/// container operations, making it easier to handle different error conditions
+/// appropriately.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ContainerErrorKind {
+    /// A component or dependency was not found
     NotFound,
+    /// A circular dependency was detected between components
     CircularDependency,
+    /// Failed to create a component instance
     CreationFailed,
+    /// Failed to cast a component to the expected type
     TypeCastFailed,
+    /// Configuration error occurred
     Configuration,
+    /// Other unspecified error
     Other,
 }
 
@@ -44,6 +77,20 @@ impl std::error::Error for ContainerError {
 }
 
 impl ContainerError {
+    /// Creates a new ContainerError with the specified kind and message
+    /// 
+    /// # Arguments
+    /// 
+    /// * `kind` - The kind of error that occurred
+    /// * `message` - A descriptive error message
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// use verdure_core::error::container::{ContainerError, ContainerErrorKind};
+    /// 
+    /// let error = ContainerError::new(ContainerErrorKind::NotFound, "Component missing");
+    /// ```
     pub fn new<M: Into<String>>(kind: ContainerErrorKind, message: M) -> Self {
         Self {
             kind,
@@ -52,6 +99,24 @@ impl ContainerError {
         }
     }
 
+    /// Adds a source error to this ContainerError
+    /// 
+    /// This is useful for error chaining, where one error is caused by another.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `err` - The source error that caused this error
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// use verdure_core::error::container::ContainerError;
+    /// use std::io::Error;
+    /// 
+    /// let io_error = Error::new(std::io::ErrorKind::NotFound, "file not found");
+    /// let container_error = ContainerError::creation_failed("Failed to load config")
+    ///     .with_source(io_error);
+    /// ```
     pub fn with_source<E>(mut self, err: E) -> Self
     where
         E: std::error::Error + Send + Sync + 'static,
@@ -60,26 +125,56 @@ impl ContainerError {
         self
     }
 
+    /// Creates a new "not found" error
+    /// 
+    /// # Arguments
+    /// 
+    /// * `message` - A descriptive message about what was not found
     pub fn not_found<M: Into<String>>(message: M) -> Self {
         Self::new(ContainerErrorKind::NotFound, message)
     }
 
+    /// Creates a new "circular dependency" error
+    /// 
+    /// # Arguments
+    /// 
+    /// * `message` - A descriptive message about the circular dependency
     pub fn circular_dependency<M: Into<String>>(message: M) -> Self {
         Self::new(ContainerErrorKind::CircularDependency, message)
     }
 
+    /// Creates a new "creation failed" error
+    /// 
+    /// # Arguments
+    /// 
+    /// * `message` - A descriptive message about the creation failure
     pub fn creation_failed<M: Into<String>>(message: M) -> Self {
         Self::new(ContainerErrorKind::CreationFailed, message)
     }
 
+    /// Creates a new "type cast failed" error
+    /// 
+    /// # Arguments
+    /// 
+    /// * `message` - A descriptive message about the type cast failure
     pub fn type_cast_failed<M: Into<String>>(message: M) -> Self {
         Self::new(ContainerErrorKind::TypeCastFailed, message)
     }
 
+    /// Creates a new "configuration" error
+    /// 
+    /// # Arguments
+    /// 
+    /// * `message` - A descriptive message about the configuration error
     pub fn configuration<M: Into<String>>(message: M) -> Self {
         Self::new(ContainerErrorKind::Configuration, message)
     }
 
+    /// Creates a new "other" error
+    /// 
+    /// # Arguments
+    /// 
+    /// * `message` - A descriptive message about the error
     pub fn other<M: Into<String>>(message: M) -> Self {
         Self::new(ContainerErrorKind::Other, message)
     }

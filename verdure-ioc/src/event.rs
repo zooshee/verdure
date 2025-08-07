@@ -1,41 +1,152 @@
+//! Container lifecycle event system for the Verdure ecosystem
+//! 
+//! This module provides a comprehensive event system for monitoring container
+//! and component lifecycle events across the Verdure ecosystem. It enables
+//! observability and debugging of the dependency injection process that powers
+//! all Verdure applications, from simple services to complex web applications.
+
 use std::any::TypeId;
 use std::time::Duration;
 use crate::container::ComponentContainer;
 
+/// Container lifecycle events enumeration
+/// 
+/// This enum represents different events that occur during the container's lifecycle,
+/// including initialization phases and component creation events.
+/// 
+/// # Examples
+/// 
+/// ```rust
+/// use verdure_ioc::{ContainerLifecycleEvent, ComponentContainer};
+/// 
+/// fn handle_event(event: &ContainerLifecycleEvent) {
+///     match event {
+///         ContainerLifecycleEvent::InitializationStarted { component_count, .. } => {
+///             println!("Starting initialization of {} components", component_count);
+///         }
+///         ContainerLifecycleEvent::InitializationCompleted { duration, .. } => {
+///             println!("Initialization completed in {:?}", duration);
+///         }
+///         ContainerLifecycleEvent::ComponentCreated { component_name, .. } => {
+///             println!("Created component: {}", component_name);
+///         }
+///     }
+/// }
+/// ```
 pub enum ContainerLifecycleEvent<'a> {
+    /// Fired when container initialization begins
     InitializationStarted {
+        /// Reference to the container being initialized
         container: &'a ComponentContainer,
+        /// Total number of components to be initialized
         component_count: usize,
     },
+    /// Fired when container initialization completes successfully
     InitializationCompleted {
+        /// Reference to the initialized container
         container: &'a ComponentContainer,
+        /// Number of components that were successfully initialized
         component_count: usize,
+        /// Total time taken for initialization
         duration: Duration,
     },
+    /// Fired when an individual component is created
     ComponentCreated {
+        /// Reference to the container
         container: &'a ComponentContainer,
+        /// Human-readable name of the component type
         component_name: &'static str,
+        /// TypeId of the created component
         component_type_id: TypeId,
+        /// Time taken to create this specific component
         creation_duration: Duration,
     },
 }
 
+/// Trait for implementing lifecycle event listeners
+/// 
+/// Implement this trait to receive notifications about container lifecycle events.
+/// Listeners must be thread-safe as they may be called from multiple threads.
+/// 
+/// # Examples
+/// 
+/// ```rust
+/// use verdure_ioc::{LifecycleListener, ContainerLifecycleEvent};
+/// 
+/// struct MyListener;
+/// 
+/// impl LifecycleListener for MyListener {
+///     fn on_lifecycle_event(&self, event: &ContainerLifecycleEvent) {
+///         println!("Received lifecycle event");
+///     }
+/// }
+/// ```
 pub trait LifecycleListener: Send + Sync {
+    /// Called when a lifecycle event occurs
+    /// 
+    /// # Arguments
+    /// 
+    /// * `event` - The lifecycle event that occurred
     fn on_lifecycle_event(&self, event: &ContainerLifecycleEvent);
 }
 
+/// Static definition of a lifecycle event listener
+/// 
+/// This structure is used to register event listeners with the container
+/// using the `lifecycle_listener!` macro. It contains the listener's name
+/// and handler function.
+/// 
+/// # Examples
+/// 
+/// ```rust
+/// use verdure_ioc::{LifecycleListenerDefinition, ContainerLifecycleEvent};
+/// 
+/// fn my_handler(event: &ContainerLifecycleEvent) {
+///     println!("Event received");
+/// }
+/// 
+/// let definition = LifecycleListenerDefinition {
+///     name: "my_listener",
+///     handler: my_handler,
+/// };
+/// ```
 pub struct LifecycleListenerDefinition {
+    /// Unique name identifying this listener
     pub name: &'static str,
+    /// Function to call when events occur
     pub handler: fn(&ContainerLifecycleEvent),
 }
 
 inventory::collect!(LifecycleListenerDefinition);
 
+/// Publisher for container lifecycle events
+/// 
+/// `LifecycleEventPublisher` manages the collection of registered event listeners
+/// and dispatches events to all registered handlers. It is used internally by
+/// the container to publish events during various lifecycle phases.
+/// 
+/// # Thread Safety
+/// 
+/// This struct is thread-safe and can be shared across multiple threads.
+/// Event publishing is synchronous and will call all listeners in sequence.
 pub struct LifecycleEventPublisher {
+    /// Collection of all registered listener definitions
     listeners: Vec<&'static LifecycleListenerDefinition>,
 }
 
 impl LifecycleEventPublisher {
+    /// Creates a new LifecycleEventPublisher
+    /// 
+    /// This method automatically discovers all registered lifecycle listeners
+    /// using the inventory system and prepares them for event dispatching.
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// use verdure_ioc::LifecycleEventPublisher;
+    /// 
+    /// let publisher = LifecycleEventPublisher::new();
+    /// ```
     pub fn new() -> Self {
         let listeners: Vec<&'static LifecycleListenerDefinition> =
             inventory::iter::<LifecycleListenerDefinition>().collect();
@@ -43,6 +154,30 @@ impl LifecycleEventPublisher {
         Self { listeners }
     }
 
+    /// Publishes an event to all registered listeners
+    /// 
+    /// This method synchronously calls all registered event handlers with the provided event.
+    /// If any listener panics, the panic will propagate up to the caller.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `event` - The lifecycle event to publish
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// use verdure_ioc::{LifecycleEventPublisher, ContainerLifecycleEvent, ComponentContainer};
+    /// 
+    /// let publisher = LifecycleEventPublisher::new();
+    /// let container = ComponentContainer::new();
+    /// 
+    /// let event = ContainerLifecycleEvent::InitializationStarted {
+    ///     container: &container,
+    ///     component_count: 0,
+    /// };
+    /// 
+    /// publisher.publish(&event);
+    /// ```
     pub fn publish(&self, event: &ContainerLifecycleEvent) {
         for listener in &self.listeners {
             (listener.handler)(event);

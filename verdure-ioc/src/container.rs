@@ -1,3 +1,10 @@
+//! IoC container implementation for the Verdure ecosystem
+//! 
+//! This module provides the core `ComponentContainer` implementation that serves as the
+//! foundation for dependency injection across the entire Verdure ecosystem. It manages
+//! component lifecycles, resolves dependencies, and provides the runtime infrastructure
+//! that enables Verdure's declarative programming model.
+
 use crate::{ComponentDefinition, ComponentFactory, ComponentInstance, ComponentScope};
 use dashmap::{DashMap, DashSet};
 use std::any::{Any, TypeId};
@@ -7,22 +14,64 @@ use std::time::Instant;
 use verdure_core::error::container::ContainerError;
 use crate::event::{ContainerLifecycleEvent, LifecycleEventPublisher};
 
+/// Component descriptor for identifying components in the container
+/// 
+/// `ComponentDescriptor` uniquely identifies components within the container
+/// using both their type and an optional qualifier string.
+/// 
+/// # Examples
+/// 
+/// ```rust
+/// use verdure_ioc::ComponentContainer;
+/// use std::any::TypeId;
+/// 
+/// #[derive(Debug)]
+/// struct DatabaseService;
+/// 
+/// let container = ComponentContainer::new();
+/// // ComponentDescriptor is used internally by the container
+/// // Users typically don't need to create descriptors manually
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ComponentDescriptor {
+    /// The TypeId of the component
     pub type_id: TypeId,
+    /// Optional qualifier for named instances
     pub qualifier: Option<&'static str>,
 }
 
 impl ComponentDescriptor {
+    /// Creates a new ComponentDescriptor with the given type and optional qualifier
+    /// 
+    /// # Arguments
+    /// 
+    /// * `type_id` - The TypeId of the component
+    /// * `qualifier` - Optional qualifier string for named instances
     pub fn new(type_id: TypeId, qualifier: Option<&'static str>) -> Self {
         Self { type_id, qualifier }
     }
+    
+    /// Creates a ComponentDescriptor for the specified type without a qualifier
+    /// 
+    /// # Type Parameters
+    /// 
+    /// * `T` - The component type
     pub fn for_type<T: 'static>() -> Self {
         Self {
             type_id: TypeId::of::<T>(),
             qualifier: None,
         }
     }
+    
+    /// Creates a ComponentDescriptor for the specified type with a qualifier
+    /// 
+    /// # Arguments
+    /// 
+    /// * `qualifier` - The qualifier string for named instances
+    /// 
+    /// # Type Parameters
+    /// 
+    /// * `T` - The component type
     pub fn with_qualifier<T: 'static>(qualifier: &'static str) -> Self {
         Self {
             type_id: TypeId::of::<T>(),
@@ -30,21 +79,90 @@ impl ComponentDescriptor {
         }
     }
 }
+
+/// Statistics for component creation and access
+/// 
+/// `ComponentStats` tracks various metrics about component usage for
+/// monitoring and debugging purposes.
 #[derive(Debug, Default, Clone)]
 pub struct ComponentStats {
+    /// When the component was first created
     pub created_at: Option<Instant>,
+    /// When the component was last accessed
     pub last_accessed: Option<Instant>,
+    /// Total number of times the component has been accessed
     pub access_count: u64,
+    /// Time taken to create the component instance (in milliseconds)
     pub creation_time: u64,
 }
+
+/// The central IoC container for the Verdure ecosystem
+/// 
+/// `ComponentContainer` serves as the heart of the Verdure ecosystem's dependency injection system.
+/// It provides the runtime infrastructure that enables all Verdure modules - from web frameworks
+/// to data access layers - to work together through declarative component management.
+/// 
+/// This container powers the entire Verdure ecosystem by providing:
+/// * **Cross-module Integration**: Components from different Verdure modules can seamlessly depend on each other
+/// * **Ecosystem Coherence**: Unified component management across verdure-web, verdure-data, verdure-security, etc.
+/// 
+/// # Features
+/// 
+/// * **Thread-safe**: Uses concurrent data structures for safe multi-threaded access
+/// * **Dependency Resolution**: Automatically resolves and injects component dependencies
+/// * **Circular Dependency Detection**: Prevents infinite dependency loops during resolution
+/// * **Lifecycle Events**: Publishes events during container and component lifecycle operations
+/// * **Statistics Tracking**: Maintains creation and access statistics for monitoring
+/// 
+/// # Examples
+/// 
+/// ```rust
+/// use verdure_ioc::{ComponentContainer, ComponentFactory};
+/// use std::sync::Arc;
+/// 
+/// #[derive(Debug)]
+/// struct DatabaseService {
+///     connection_string: String,
+/// }
+/// 
+/// // Create container
+/// let container = ComponentContainer::new();
+/// 
+/// // Register a component
+/// let db_service = Arc::new(DatabaseService {
+///     connection_string: "postgres://localhost:5432/mydb".to_string(),
+/// });
+/// container.register_component(db_service);
+/// 
+/// // Retrieve the component
+/// let retrieved: Option<Arc<DatabaseService>> = container.get_component();
+/// assert!(retrieved.is_some());
+/// 
+/// // Initialize automatic components (from #[derive(Component)])
+/// let result = container.initialize();
+/// assert!(result.is_ok());
+/// ```
 pub struct ComponentContainer {
+    /// Map of component descriptors to their instances
     components: DashMap<ComponentDescriptor, ComponentInstance>,
+    /// Set tracking which components are currently being initialized (for circular dependency detection)
     initializing: DashSet<TypeId>,
+    /// Statistics for each component
     stats: DashMap<ComponentDescriptor, ComponentStats>,
+    /// Event publisher for lifecycle events
     lifecycle_publisher: Arc<LifecycleEventPublisher>,
 }
 
 impl ComponentContainer {
+    /// Creates a new empty ComponentContainer
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// use verdure_ioc::ComponentContainer;
+    /// 
+    /// let container = ComponentContainer::new();
+    /// ```
     pub fn new() -> Self {
         Self {
             components: DashMap::new(),
@@ -54,6 +172,28 @@ impl ComponentContainer {
         }
     }
 
+    /// Initializes the container by discovering and creating all registered components
+    /// 
+    /// This method scans for all components registered via the `#[derive(Component)]` macro
+    /// and creates instances of them, resolving their dependencies automatically.
+    /// It also publishes lifecycle events during the initialization process.
+    /// 
+    /// # Returns
+    /// 
+    /// * `Ok(())` - If initialization completed successfully
+    /// * `Err(ContainerError)` - If there was an error during initialization (e.g., circular dependencies)
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// use verdure_ioc::ComponentContainer;
+    /// 
+    /// let container = ComponentContainer::new();
+    /// match container.initialize() {
+    ///     Ok(_) => println!("Container initialized successfully"),
+    ///     Err(e) => eprintln!("Initialization failed: {}", e),
+    /// }
+    /// ```
     pub fn initialize(&self) -> Result<(), ContainerError> {
 
         let component_count = inventory::iter::<ComponentDefinition>().count();
@@ -92,11 +232,47 @@ impl ComponentContainer {
         Ok(())
     }
 
+    /// Registers a pre-created component instance with the container
+    /// 
+    /// This method allows manual registration of component instances that have been
+    /// created outside the container's automatic initialization process.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `instance` - The component instance to register
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// use verdure_ioc::ComponentContainer;
+    /// use std::sync::Arc;
+    /// 
+    /// #[derive(Debug)]
+    /// struct ConfigService {
+    ///     config_path: String,
+    /// }
+    /// 
+    /// let container = ComponentContainer::new();
+    /// let config = Arc::new(ConfigService {
+    ///     config_path: "/etc/myapp/config.toml".to_string(),
+    /// });
+    /// 
+    /// container.register_component(config);
+    /// ```
     pub fn register_component(&self, instance: ComponentInstance) {
         let type_id = (*instance).type_id();
         self.register_component_by_type_id(type_id, instance);
     }
 
+    /// Registers a component instance with the container using a specific TypeId
+    /// 
+    /// This method is useful when you need to register a component with a different
+    /// type identity than its concrete type.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `type_id` - The TypeId to use for component registration
+    /// * `instance` - The component instance to register
     pub fn register_component_by_type_id(&self, type_id: TypeId, instance: ComponentInstance) {
         let descriptor = ComponentDescriptor::new(type_id, None);
         self.components.insert(descriptor, instance);
