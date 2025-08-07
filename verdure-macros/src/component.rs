@@ -114,7 +114,7 @@ fn find_scope_attribute(attrs: &Vec<Attribute>) -> Option<TokenStream> {
                 return Some(quote! { #tokens });
             } else {
                 return Some(quote! {
-                    verdure::ComponentScope::Singleton
+                    ::verdure::ComponentScope::Singleton
                 });
             }
         }
