@@ -5,20 +5,63 @@
 
 English | [简体中文](./README-zh_cn.md)
 
-Verdure - An ecosystem framework for Rust.
+Verdure - An ecosystem framework for Rust
 
-True to its name, Verdure aims to be a vibrant and thriving ecosystem framework, dedicated to facilitating convenient and efficient Rust development.
+True to its name, Verdure represents a vibrant and thriving ecosystem framework, dedicated to facilitating convenient and efficient Rust development through a comprehensive, integrated suite of tools and patterns.
 
 The project is currently in the foundational development phase. We are looking for enthusiastic contributors to join us in building it.
 
-## Features
+## Ecosystem Modules
 
-- [x] IoC container and container event listening
-- [x] Dependency Injection (DI)
-- [ ] Automatic Configuration
-- [ ] AOP (Aspect-Oriented Programming)
-- [ ] Context
-- [ ] And more...
+### ✅ Current Release (v0.0.1) - Foundation
+
+- **verdure-core**: Foundation types, error handling, and common utilities
+- **verdure-ioc**: Dependency injection container and component management  
+- **verdure-macros**: Compile-time code generation and annotation processing
+- **verdure-context**: Application context and environment management (🚧)
+
+### 🚧 Upcoming Releases - Complete Ecosystem
+
+**Application Framework**:
+- verdure-boot: Auto-configuration and application bootstrapping
+- verdure-config: Configuration management and property binding
+- verdure-profiles: Environment-specific configuration profiles
+
+**Web & Network**:
+- verdure-web: Web framework with MVC patterns
+- verdure-http: HTTP client and server abstractions
+- verdure-websocket: WebSocket support and real-time communication
+
+**Data & Persistence**:
+- verdure-data: Data access patterns and repository abstractions
+- verdure-orm: Object-relational mapping with active record patterns
+- verdure-transaction: Transaction management and ACID support
+
+**Security & Authentication**:
+- verdure-security: Authentication and authorization framework
+- verdure-oauth: OAuth2 and OpenID Connect integration
+
+
+## Current Features (v0.0.1)
+
+- [x] **IoC Container**: Comprehensive dependency injection with automatic resolution
+- [x] **Component Lifecycle**: Singleton and prototype scopes with lifecycle events
+- [x] **Annotation-Driven Development**: `#[derive(Component)]` and `#[autowired]` for declarative configuration
+- [x] **Event System**: Container and component lifecycle event handling
+- [x] **Circular Dependency Detection**: Prevents infinite dependency loops
+- [x] **Thread Safety**: Full concurrent access support for multi-threaded applications
+
+### 📋 Roadmap - Building the Complete Ecosystem
+
+- [ ] **Auto-Configuration**: Out-of-the-box application bootstrapping
+- [ ] **Web Framework**: MVC patterns and REST API development
+- [ ] **Data Access**: Repository patterns and ORM integration
+- [ ] **Security Framework**: Authentication and authorization
+- [ ] **AOP (Aspect-Oriented Programming)**: Cross-cutting concern support
+- [ ] **Message-Driven Architecture**: Event-driven programming patterns
+- [ ] **Observability**: Metrics, tracing, and health checks
+- [ ] And much more...
+
 
 ## Add Dependency
 

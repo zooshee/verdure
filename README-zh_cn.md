@@ -5,20 +5,63 @@
 
 [English](./README.md) | 简体中文
 
-Verdure - 一个Rust的生态框架
+Verdure - Rust 的生态框架
 
-正如它的名字一样，愿景为充满朝气,生气勃勃的一个生态化框架，致力于能提供便捷的Rust开发。
+正如它的名字一样，Verdure 代表着一个充满活力和蓬勃发展的生态框架，致力于通过全面、集成的工具和模式套件，促进便捷高效的 Rust 开发。
 
-目前处于基础底座功能的打造期，期待有志之士加入一起做这件事，
 
-## 特性
+目前项目处于基础开发阶段，我们期待热情的贡献者加入我们一起构建这个框架。
 
-- [x] IOC容器及容器事件监听
-- [x] 依赖注入(DI)
-- [ ] 自动化配置
-- [ ] AOP
-- [ ] Context
-- [ ] 更多.....
+## 生态模块
+
+### ✅ 当前版本 (v0.0.1) - 基础设施
+
+- **verdure-core**: 基础类型、错误处理和通用工具
+- **verdure-ioc**: 依赖注入容器和组件管理  
+- **verdure-macros**: 编译时代码生成和注解处理
+- **verdure-context**: 应用上下文和环境管理 (🚧)
+
+### 🚧 即将发布 - 完整生态系统
+
+**应用框架**：
+- verdure-boot: 自动配置和应用程序引导
+- verdure-config: 配置管理和属性绑定
+- verdure-profiles: 环境特定的配置文件
+
+**Web 和网络**：
+- verdure-web: 具有 MVC 模式的 Web 框架
+- verdure-http: HTTP 客户端和服务器抽象
+- verdure-websocket: WebSocket 支持和实时通信
+
+**数据和持久化**：
+- verdure-data: 数据访问模式和仓库抽象
+- verdure-orm: 具有活动记录模式的对象关系映射
+- verdure-transaction: 事务管理和 ACID 支持
+
+**安全和认证**：
+- verdure-security: 认证和授权框架
+- verdure-oauth: OAuth2 和 OpenID Connect 集成
+
+
+## 当前特性 (v0.0.1)
+
+- [x] **IoC 容器**: 具有自动解析的全面依赖注入
+- [x] **组件生命周期**: 单例和原型作用域，带生命周期事件
+- [x] **注解驱动开发**: `#[derive(Component)]` 和 `#[autowired]` 用于声明式配置
+- [x] **事件系统**: 容器和组件生命周期事件处理
+- [x] **循环依赖检测**: 防止无限依赖循环
+- [x] **线程安全**: 多线程应用程序的完全并发访问支持
+
+### 📋 路线图 - 构建完整生态系统
+
+- [ ] **自动配置**: 开箱即用的应用程序引导
+- [ ] **Web 框架**: MVC 模式和 REST API 开发
+- [ ] **数据访问**: 仓库模式和 ORM 集成
+- [ ] **安全框架**: 认证和授权
+- [ ] **AOP（面向切面编程）**: 切面编程支持
+- [ ] **消息驱动架构**: 事件驱动编程模式
+- [ ] **可观测性**: 指标、追踪和健康检查
+- [ ] 以及更多...
 
 ## 引入依赖
 
@@ -26,7 +69,7 @@ Verdure - 一个Rust的生态框架
 verdure = "0.0.1"
 inventory = "0.3"
 ```
-底层目前强依赖于`inventory`，感谢这个优秀的Repo。
+底层目前强依赖于 `inventory`，感谢这个优秀的 Repo。
 
 ## IoC / DI
 
@@ -46,13 +89,12 @@ fn init_container() {
 
 ### 注册组件（Component）
 
-#### 自动注册及注入（Drive）
+#### 自动注册及注入（Derive）
 
-在结构体上添加`Component`宏会自动将一个`struct`注册至容器中，默认为单例，对于添加了`#[autowired]`的字段会自动从容器中获取实例并进行注入。
+在结构体上添加 `#[derive(Component)]` 宏会自动将一个 `struct` 注册至容器中，默认为单例。对于添加了 `#[autowired]` 的字段会自动从容器中获取实例并进行注入。
 
 ```rust
 use verdure::Component;
-
 
 #[derive(Component)]
 struct TestA {
@@ -78,10 +120,10 @@ struct TestD {
 }
 ```
 
-需要注意的事项有二点:
+需要注意的事项有二点：
 
-* 被注入的字段必须是`Arc<T>`包装
-* 对于不需要注入的字段则需要它们是`Option<T>`或已实现`Default`特性
+* 被注入的字段必须是 `Arc<T>` 包装
+* 对于不需要注入的字段则需要它们是 `Option<T>` 或已实现 `Default` 特性
 
 #### 手动注册及获取组件
 
@@ -101,7 +143,9 @@ fn main() {
 ```
 
 ### 容器事件监听
-### 使用宏的方式
+
+#### 使用宏的方式
+
 ```rust
 fn handle_container_lifecycle(event: &ContainerLifecycleEvent) {
     match event {
