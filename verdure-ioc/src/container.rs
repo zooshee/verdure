@@ -286,7 +286,7 @@ impl ComponentContainer {
         if !self.initializing.insert(descriptor.type_id) {
             let type_name = def_map
                 .get(&descriptor.type_id)
-                .map_or("Unknow", |d| d.type_name);
+                .map_or("Unknown", |d| d.type_name);
             return Err(ContainerError::circular_dependency(format!(
                 "{}",
                 type_name
