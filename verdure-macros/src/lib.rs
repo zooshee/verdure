@@ -115,3 +115,9 @@ pub fn component_derive(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     component::impl_component_derive(&ast).into()
 }
+
+#[proc_macro_derive(Configuration, attributes(configuration, config_default, config_default_t))]
+pub fn configuration_derive(input: TokenStream) -> TokenStream {
+    let ast = parse_macro_input!(input as DeriveInput);
+    configuration::impl_configuration_derive(&ast).into()
+}

@@ -11,6 +11,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 
+pub trait ConfigComponent {
+    fn from_config_manager(config_manager: &ConfigManager) -> ContextResult<Self>
+    where
+        Self: Sized;
+
+    fn config_module_key() -> &'static str;
+}
+
 /// Configuration file formats
 #[derive(Debug, Clone, Copy)]
 enum ConfigFileFormat {
