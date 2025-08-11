@@ -44,6 +44,7 @@
 //! 4. Initialize non-autowired fields using `Default::default()` or `None` for `Option<T>`
 
 mod component;
+mod configuration;
 
 use proc_macro::TokenStream;
 use syn::{DeriveInput, parse_macro_input};
