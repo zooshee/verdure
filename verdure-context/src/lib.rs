@@ -1,89 +1,89 @@
 //! Verdure Application Context - Context Management for the Verdure Ecosystem
-//! 
+//!
 //! This crate provides application context management as a core part of the Verdure ecosystem
 //! framework. It serves as the central hub for application-wide state, configuration,
 //! and environment management that integrates with all other Verdure modules.
-//! 
+//!
 //! This module provides the foundation
 //! for configuration-driven development and environment-aware component behavior
 //! across the entire Verdure ecosystem.
 //!
 //! # Core Features
-//! 
+//!
 //! * **Application Context**: Centralized application state management
 //! * **Configuration Management**: Hierarchical configuration system with multiple sources
 //! * **Environment Profiles**: Support for different deployment environments
 //! * **Event Broadcasting**: Application-wide event system for decoupled communication
 //! * **IoC Integration**: Seamless integration with the Verdure IoC container
 //! * **Type-Safe Configuration**: Strongly-typed configuration value access
-//! 
+//!
 //! # Quick Start
-//! 
+//!
 //! ## Basic Usage
-//! 
+//!
 //! ```rust
 //! use verdure_context::{ApplicationContext, ConfigSource};
 //! use std::collections::HashMap;
-//! 
+//!
 //! // Create and configure application context
 //! let context = ApplicationContext::builder()
 //!     .with_property("app.name", "MyApp")
 //!     .with_property("app.port", "8080")
 //!     .build()
 //!     .unwrap();
-//! 
+//!
 //! // Initialize the context
 //! context.initialize().unwrap();
-//! 
+//!
 //! // Access configuration
 //! let app_name = context.get_config("app.name");
 //! let port: i64 = context.get_config_as("app.port").unwrap();
-//! 
+//!
 //! println!("Starting {} on port {}", app_name, port);
 //! ```
-//! 
+//!
 //! ## Configuration from Files
-//! 
+//!
 //! Verdure Context supports multiple configuration file formats:
-//! 
+//!
 //! ### TOML Configuration
-//! 
+//!
 //! ```rust,no_run
 //! use verdure_context::ApplicationContext;
-//! 
+//!
 //! let context = ApplicationContext::builder()
 //!     .with_toml_config_file("config/app.toml")
 //!     .build()
 //!     .unwrap();
 //! ```
-//! 
+//!
 //! ### YAML Configuration
-//! 
+//!
 //! ```rust,no_run
 //! use verdure_context::ApplicationContext;
-//! 
+//!
 //! let context = ApplicationContext::builder()
 //!     .with_yaml_config_file("config/app.yaml")
 //!     .build()
 //!     .unwrap();
 //! ```
-//! 
+//!
 //! ### Properties Configuration
-//! 
+//!
 //! ```rust,no_run
 //! use verdure_context::ApplicationContext;
-//! 
+//!
 //! let context = ApplicationContext::builder()
 //!     .with_properties_config_file("config/app.properties")
 //!     .build()
 //!     .unwrap();
 //! ```
-//! 
+//!
 //! ### Auto-Detection
-//! 
+//!
 //! ```rust,no_run
 //! use verdure_context::ApplicationContext;
-//! 
+//!
 //! // Format is auto-detected based on file extension
 //! let context = ApplicationContext::builder()
 //!     .with_config_file("config/app.yaml")      // YAML
@@ -92,20 +92,20 @@
 //!     .build()
 //!     .unwrap();
 //! ```
-//! 
+//!
 //! ## Event System
-//! 
+//!
 //! ```rust
 //! use verdure_context::{ApplicationContext, Event, EventListener};
 //! use std::any::Any;
-//! 
+//!
 //! // Define an event
 //! #[derive(Debug, Clone)]
 //! struct UserRegisteredEvent {
 //!     pub user_id: u64,
 //!     pub email: String,
 //! }
-//! 
+//!
 //! impl Event for UserRegisteredEvent {
 //!     fn name(&self) -> &'static str {
 //!         "UserRegistered"
@@ -119,21 +119,21 @@
 //!         self
 //!     }
 //! }
-//! 
+//!
 //! // Create event listener
 //! struct EmailNotificationListener;
-//! 
+//!
 //! impl EventListener<UserRegisteredEvent> for EmailNotificationListener {
 //!     fn on_event(&self, event: &UserRegisteredEvent) {
-//!         println!("Sending welcome email to user {} ({})", 
+//!         println!("Sending welcome email to user {} ({})",
 //!                  event.user_id, event.email);
 //!     }
 //! }
-//! 
+//!
 //! // Set up context with event handling
 //! let mut context = ApplicationContext::new();
 //! context.subscribe_to_events(EmailNotificationListener);
-//! 
+//!
 //! // Publish events
 //! let event = UserRegisteredEvent {
 //!     user_id: 123,
@@ -141,68 +141,68 @@
 //! };
 //! context.publish_event(&event);
 //! ```
-//! 
+//!
 //! ## IoC Container Integration
-//! 
+//!
 //! ```rust
 //! use verdure_context::ApplicationContext;
 //! use std::sync::Arc;
-//! 
+//!
 //! #[derive(Debug)]
 //! struct DatabaseService {
 //!     connection_url: String,
 //! }
-//! 
+//!
 //! let context = ApplicationContext::builder()
 //!     .with_property("database.url", "postgres://localhost/myapp")
 //!     .build()
 //!     .unwrap();
-//! 
+//!
 //! // Register components with the container
 //! let db_service = Arc::new(DatabaseService {
 //!     connection_url: context.get_config("database.url"),
 //! });
 //! context.container().register_component(db_service);
-//! 
+//!
 //! // Retrieve components
 //! let retrieved: Option<Arc<DatabaseService>> = context.get_component();
 //! assert!(retrieved.is_some());
 //! ```
-//! 
+//!
 //! # Advanced Features
-//! 
+//!
 //! ## Environment Profiles
-//! 
+//!
 //! ```rust
 //! use verdure_context::{ApplicationContext, Profile};
 //! use std::collections::HashMap;
-//! 
+//!
 //! // Create profile-specific configurations
 //! let mut dev_props = HashMap::new();
 //! dev_props.insert("database.url".to_string(), "postgres://localhost/dev".to_string());
 //! dev_props.insert("logging.level".to_string(), "DEBUG".to_string());
 //! let dev_profile = Profile::new("development", dev_props);
-//! 
+//!
 //! let mut prod_props = HashMap::new();
 //! prod_props.insert("database.url".to_string(), "postgres://prod-server/app".to_string());
 //! prod_props.insert("logging.level".to_string(), "INFO".to_string());
 //! let prod_profile = Profile::new("production", prod_props);
-//! 
+//!
 //! let context = ApplicationContext::builder()
 //!     .with_profile(dev_profile)
 //!     .with_profile(prod_profile)
 //!     .with_active_profile("development")
 //!     .build()
 //!     .unwrap();
-//! 
+//!
 //! // Configuration values will be resolved from active profile
 //! assert_eq!(context.get_config("logging.level"), "DEBUG");
 //! ```
-//! 
+//!
 //! ## Configuration Sources Priority
-//! 
+//!
 //! Configuration sources are resolved in the following order (highest to lowest precedence):
-//! 
+//!
 //! 1. **Runtime Properties**: Values set via `set_config()`
 //! 2. **Active Profiles**: Profile-specific configuration properties
 //! 3. **Configuration Sources**: Sources added via `add_config_source()` (last added wins)
@@ -211,26 +211,26 @@
 //!    - TOML files (`.toml`)
 //!    - YAML files (`.yaml`, `.yml`)
 //!    - Properties files (`.properties`)
-//! 
+//!
 //! ## Supported Configuration Formats
-//! 
+//!
 //! ### TOML Format Example
-//! 
+//!
 //! ```toml
 //! # app.toml
 //! [app]
 //! name = "MyApplication"
 //! port = 8080
 //! debug = true
-//! 
+//!
 //! [database]
 //! host = "localhost"
 //! port = 5432
 //! name = "myapp"
 //! ```
-//! 
+//!
 //! ### YAML Format Example
-//! 
+//!
 //! ```yaml
 //! # app.yaml
 //! app:
@@ -240,29 +240,29 @@
 //!   features:
 //!     - auth
 //!     - logging
-//! 
+//!
 //! database:
 //!   host: localhost
 //!   port: 5432
 //!   name: myapp
 //! ```
-//! 
+//!
 //! ### Properties Format Example
-//! 
+//!
 //! ```properties
 //! # app.properties
 //! app.name=MyApplication
 //! app.port=8080
 //! app.debug=true
-//! 
+//!
 //! database.host=localhost
 //! database.port=5432
 //! database.name=myapp
 //! ```
-//! 
+//!
 //! All formats are converted to a flat key-value structure using dot notation
 //! (e.g., `app.name`, `database.host`) for consistent access patterns.
-//! 
+//!
 //! # Ecosystem Context Events
 //!
 //! The context system publishes several built-in events that applications can listen to.
@@ -346,7 +346,7 @@
 //!
 //! impl ContextAwareEventListener<ContextInitializingEvent> for PreStartupListener {
 //!     fn on_context_event(&self, event: &ContextInitializingEvent, context: &ApplicationContext) {
-//!         println!("🔧 Context initializing with {} sources and {} profiles...", 
+//!         println!("🔧 Context initializing with {} sources and {} profiles...",
 //!                  event.config_sources_count, event.active_profiles_count);
 //!         
 //!         // Pre-initialization tasks
@@ -368,7 +368,7 @@
 //!
 //! impl EventListener<ProfileActivatedEvent> for ProfileListener {
 //!     fn on_event(&self, event: &ProfileActivatedEvent) {
-//!         println!("🔄 Profile '{}' activated with {} properties", 
+//!         println!("🔄 Profile '{}' activated with {} properties",
 //!                  event.profile_name, event.properties_count);
 //!     }
 //! }
@@ -397,9 +397,9 @@
 //! impl EventListener<ConfigurationChangedEvent> for ConfigListener {
 //!     fn on_event(&self, event: &ConfigurationChangedEvent) {
 //!         match &event.old_value {
-//!             Some(old) => println!("⚙️ Configuration '{}' changed from '{}' to '{}'", 
+//!             Some(old) => println!("⚙️ Configuration '{}' changed from '{}' to '{}'",
 //!                                   event.key, old, event.new_value),
-//!             None => println!("➕ Configuration '{}' set to '{}'", 
+//!             None => println!("➕ Configuration '{}' set to '{}'",
 //!                              event.key, event.new_value),
 //!         }
 //!     }
@@ -418,18 +418,21 @@
 //! - **Context-aware listeners** (`ContextAwareEventListener<T>`) receive both event data and ApplicationContext reference
 //! - Both types can be registered for the same event type
 //! - Events are published to all registered listeners of the appropriate type
-//! - Lifecycle events automatically provide context access for enhanced integration capabilities 
+//! - Lifecycle events automatically provide context access for enhanced integration capabilities
 
-
-pub mod error;
 pub mod config;
-pub mod profile;
-pub mod event;
 pub mod context;
+pub mod error;
+pub mod event;
+pub mod profile;
 
 // Re-export main types for convenience
-pub use error::{ContextError, ContextResult};
 pub use config::{ConfigManager, ConfigSource, ConfigValue};
-pub use profile::{Profile, ProfileManager};
-pub use event::{Event, EventListener, EventPublisher, AnyEventListener, ContextAwareEventListener, AnyContextAwareEventListener, ContextInitializingEvent, ContextInitializedEvent, ProfileActivatedEvent, ConfigurationChangedEvent};
 pub use context::{ApplicationContext, ApplicationContextBuilder};
+pub use error::{ContextError, ContextResult};
+pub use event::{
+    AnyContextAwareEventListener, AnyEventListener, ConfigurationChangedEvent,
+    ContextAwareEventListener, ContextInitializedEvent, ContextInitializingEvent, Event,
+    EventListener, EventPublisher, ProfileActivatedEvent,
+};
+pub use profile::{Profile, ProfileManager};

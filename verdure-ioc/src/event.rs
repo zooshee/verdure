@@ -1,24 +1,24 @@
 //! Container lifecycle event system for the Verdure ecosystem
-//! 
+//!
 //! This module provides a comprehensive event system for monitoring container
 //! and component lifecycle events across the Verdure ecosystem. It enables
 //! observability and debugging of the dependency injection process that powers
 //! all Verdure applications, from simple services to complex web applications.
 
+use crate::container::ComponentContainer;
 use std::any::TypeId;
 use std::time::Duration;
-use crate::container::ComponentContainer;
 
 /// Container lifecycle events enumeration
-/// 
+///
 /// This enum represents different events that occur during the container's lifecycle,
 /// including initialization phases and component creation events.
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust
 /// use verdure_ioc::{ContainerLifecycleEvent, ComponentContainer};
-/// 
+///
 /// fn handle_event(event: &ContainerLifecycleEvent) {
 ///     match event {
 ///         ContainerLifecycleEvent::InitializationStarted { component_count, .. } => {
@@ -64,17 +64,17 @@ pub enum ContainerLifecycleEvent<'a> {
 }
 
 /// Trait for implementing lifecycle event listeners
-/// 
+///
 /// Implement this trait to receive notifications about container lifecycle events.
 /// Listeners must be thread-safe as they may be called from multiple threads.
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust
 /// use verdure_ioc::{LifecycleListener, ContainerLifecycleEvent};
-/// 
+///
 /// struct MyListener;
-/// 
+///
 /// impl LifecycleListener for MyListener {
 ///     fn on_lifecycle_event(&self, event: &ContainerLifecycleEvent) {
 ///         println!("Received lifecycle event");
@@ -83,28 +83,28 @@ pub enum ContainerLifecycleEvent<'a> {
 /// ```
 pub trait LifecycleListener: Send + Sync {
     /// Called when a lifecycle event occurs
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `event` - The lifecycle event that occurred
     fn on_lifecycle_event(&self, event: &ContainerLifecycleEvent);
 }
 
 /// Static definition of a lifecycle event listener
-/// 
+///
 /// This structure is used to register event listeners with the container
 /// using the `lifecycle_listener!` macro. It contains the listener's name
 /// and handler function.
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust
 /// use verdure_ioc::{LifecycleListenerDefinition, ContainerLifecycleEvent};
-/// 
+///
 /// fn my_handler(event: &ContainerLifecycleEvent) {
 ///     println!("Event received");
 /// }
-/// 
+///
 /// let definition = LifecycleListenerDefinition {
 ///     name: "my_listener",
 ///     handler: my_handler,
@@ -120,13 +120,13 @@ pub struct LifecycleListenerDefinition {
 inventory::collect!(LifecycleListenerDefinition);
 
 /// Publisher for container lifecycle events
-/// 
+///
 /// `LifecycleEventPublisher` manages the collection of registered event listeners
 /// and dispatches events to all registered handlers. It is used internally by
 /// the container to publish events during various lifecycle phases.
-/// 
+///
 /// # Thread Safety
-/// 
+///
 /// This struct is thread-safe and can be shared across multiple threads.
 /// Event publishing is synchronous and will call all listeners in sequence.
 pub struct LifecycleEventPublisher {
@@ -136,15 +136,15 @@ pub struct LifecycleEventPublisher {
 
 impl LifecycleEventPublisher {
     /// Creates a new LifecycleEventPublisher
-    /// 
+    ///
     /// This method automatically discovers all registered lifecycle listeners
     /// using the inventory system and prepares them for event dispatching.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```rust
     /// use verdure_ioc::LifecycleEventPublisher;
-    /// 
+    ///
     /// let publisher = LifecycleEventPublisher::new();
     /// ```
     pub fn new() -> Self {
@@ -155,27 +155,27 @@ impl LifecycleEventPublisher {
     }
 
     /// Publishes an event to all registered listeners
-    /// 
+    ///
     /// This method synchronously calls all registered event handlers with the provided event.
     /// If any listener panics, the panic will propagate up to the caller.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `event` - The lifecycle event to publish
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```rust
     /// use verdure_ioc::{LifecycleEventPublisher, ContainerLifecycleEvent, ComponentContainer};
-    /// 
+    ///
     /// let publisher = LifecycleEventPublisher::new();
     /// let container = ComponentContainer::new();
-    /// 
+    ///
     /// let event = ContainerLifecycleEvent::InitializationStarted {
     ///     container: &container,
     ///     component_count: 0,
     /// };
-    /// 
+    ///
     /// publisher.publish(&event);
     /// ```
     pub fn publish(&self, event: &ContainerLifecycleEvent) {
@@ -189,8 +189,8 @@ impl LifecycleEventPublisher {
 mod tests {
     use super::*;
     use crate::ComponentContainer;
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::time::Duration;
 
     static EVENT_COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -198,7 +198,7 @@ mod tests {
 
     fn test_event_handler(event: &ContainerLifecycleEvent) {
         EVENT_COUNTER.fetch_add(1, Ordering::SeqCst);
-        
+
         match event {
             ContainerLifecycleEvent::InitializationStarted { .. } => {
                 LAST_EVENT_TYPE.store(1, Ordering::SeqCst);
@@ -220,16 +220,16 @@ mod tests {
         };
 
         assert_eq!(definition.name, "test_listener");
-        
+
         // Reset counter
         EVENT_COUNTER.store(0, Ordering::SeqCst);
-        
+
         let container = ComponentContainer::new();
         let event = ContainerLifecycleEvent::InitializationStarted {
             container: &container,
             component_count: 5,
         };
-        
+
         (definition.handler)(&event);
         assert_eq!(EVENT_COUNTER.load(Ordering::SeqCst), 1);
         assert_eq!(LAST_EVENT_TYPE.load(Ordering::SeqCst), 1);
@@ -238,7 +238,7 @@ mod tests {
     #[test]
     fn test_lifecycle_event_publisher_creation() {
         let publisher = LifecycleEventPublisher::new();
-        // The listeners vec will be populated from inventory, 
+        // The listeners vec will be populated from inventory,
         // but since we're in a test environment without registered listeners,
         // it should be empty or contain only test listeners
         assert!(publisher.listeners.len() >= 0);
@@ -247,35 +247,41 @@ mod tests {
     #[test]
     fn test_container_lifecycle_events() {
         let container = ComponentContainer::new();
-        
+
         // Test InitializationStarted event
         let init_started = ContainerLifecycleEvent::InitializationStarted {
             container: &container,
             component_count: 10,
         };
-        
+
         match &init_started {
-            ContainerLifecycleEvent::InitializationStarted { component_count, .. } => {
+            ContainerLifecycleEvent::InitializationStarted {
+                component_count, ..
+            } => {
                 assert_eq!(*component_count, 10);
             }
             _ => panic!("Expected InitializationStarted event"),
         }
-        
+
         // Test InitializationCompleted event
         let init_completed = ContainerLifecycleEvent::InitializationCompleted {
             container: &container,
             component_count: 10,
             duration: Duration::from_millis(100),
         };
-        
+
         match &init_completed {
-            ContainerLifecycleEvent::InitializationCompleted { component_count, duration, .. } => {
+            ContainerLifecycleEvent::InitializationCompleted {
+                component_count,
+                duration,
+                ..
+            } => {
                 assert_eq!(*component_count, 10);
                 assert_eq!(duration.as_millis(), 100);
             }
             _ => panic!("Expected InitializationCompleted event"),
         }
-        
+
         // Test ComponentCreated event
         let component_created = ContainerLifecycleEvent::ComponentCreated {
             container: &container,
@@ -283,13 +289,13 @@ mod tests {
             component_type_id: std::any::TypeId::of::<i32>(),
             creation_duration: Duration::from_millis(50),
         };
-        
+
         match &component_created {
-            ContainerLifecycleEvent::ComponentCreated { 
-                component_name, 
-                component_type_id, 
-                creation_duration, 
-                .. 
+            ContainerLifecycleEvent::ComponentCreated {
+                component_name,
+                component_type_id,
+                creation_duration,
+                ..
             } => {
                 assert_eq!(*component_name, "TestComponent");
                 assert_eq!(*component_type_id, std::any::TypeId::of::<i32>());
@@ -331,22 +337,22 @@ mod tests {
     fn test_lifecycle_listener_trait() {
         let listener = MockLifecycleListener::new("mock_listener");
         assert_eq!(listener.get_event_count(), 0);
-        
+
         let container = ComponentContainer::new();
         let event = ContainerLifecycleEvent::InitializationStarted {
             container: &container,
             component_count: 3,
         };
-        
+
         listener.on_lifecycle_event(&event);
         assert_eq!(listener.get_event_count(), 1);
-        
+
         let event2 = ContainerLifecycleEvent::InitializationCompleted {
             container: &container,
             component_count: 3,
             duration: Duration::from_millis(200),
         };
-        
+
         listener.on_lifecycle_event(&event2);
         assert_eq!(listener.get_event_count(), 2);
     }
@@ -357,13 +363,13 @@ mod tests {
         let publisher = LifecycleEventPublisher {
             listeners: vec![], // Empty for this test since we can't easily inject listeners
         };
-        
+
         let container = ComponentContainer::new();
         let event = ContainerLifecycleEvent::InitializationStarted {
             container: &container,
             component_count: 1,
         };
-        
+
         // This should not panic even with no listeners
         publisher.publish(&event);
     }
@@ -371,7 +377,7 @@ mod tests {
     #[test]
     fn test_event_types_pattern_matching() {
         let container = ComponentContainer::new();
-        
+
         let events = vec![
             ContainerLifecycleEvent::InitializationStarted {
                 container: &container,
@@ -389,9 +395,9 @@ mod tests {
                 creation_duration: Duration::from_millis(5),
             },
         ];
-        
+
         let mut event_types = Vec::new();
-        
+
         for event in events {
             match event {
                 ContainerLifecycleEvent::InitializationStarted { .. } => {
@@ -405,8 +411,7 @@ mod tests {
                 }
             }
         }
-        
+
         assert_eq!(event_types, vec!["started", "completed", "created"]);
     }
 }
-
