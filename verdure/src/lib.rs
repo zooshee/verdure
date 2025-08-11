@@ -179,4 +179,4 @@ pub use verdure_ioc::{
 };
 
 // Re-export context module types and traits
-pub use verdure_context::{ApplicationContext, event, config::ConfigComponent};
+pub use verdure_context::{ApplicationContext, ContextResult, event, config};

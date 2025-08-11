@@ -10,8 +10,8 @@ pub(crate) fn impl_configuration_derive(input: &DeriveInput) -> TokenStream {
     let struct_init = generate_struct_initialization(&input.data);
 
     let expanded = quote! {
-        impl ::verdure::ConfigComponent for #struct_name {
-            fn from_config_manager(config_manager: &ConfigManager) -> ContextResult<Self> {
+        impl ::verdure::config::ConfigComponent for #struct_name {
+            fn from_config_manager(config_manager: &::verdure::config::ConfigManager) -> ::verdure::ContextResult<Self> {
                 let mut instance = Self {
                     #(#struct_init)*
                 };
@@ -91,14 +91,8 @@ fn generate_field_setters(data: &Data, config_module_key: &String) -> Vec<TokenS
                         if let Some(str_val) = config_value.as_string() {
                             if let Ok(parsed_val) = str_val.parse() {
                                 instance.#field_ident = Some(parsed_val);
-                            } else {
-                                instance.#field_ident = None;
                             }
-                        } else {
-                            instance.#field_ident = None;
                         }
-                    } else {
-                        instance.#field_ident = None;
                     }
                 };
                 setters.push(setter);
