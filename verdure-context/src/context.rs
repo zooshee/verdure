@@ -259,7 +259,7 @@ impl ApplicationContextBuilder {
     ///     .unwrap();
     /// ```
     pub fn build(self) -> ContextResult<ApplicationContext> {
-        let mut context = ApplicationContext::new();
+        let context = ApplicationContext::new();
 
         // Add configuration sources
         for source in self.config_sources {
@@ -337,7 +337,7 @@ impl Default for ApplicationContextBuilder {
 /// ```
 pub struct ApplicationContext {
     /// Configuration manager
-    config_manager: ConfigManager,
+    config_manager: Arc<ConfigManager>,
     /// Event publisher for application-wide events
     event_publisher: EventPublisher,
     /// IoC container integration
@@ -358,7 +358,7 @@ impl ApplicationContext {
     /// ```
     pub fn new() -> Self {
         Self {
-            config_manager: ConfigManager::new(),
+            config_manager: Arc::new(ConfigManager::new()),
             event_publisher: EventPublisher::new(),
             container: Arc::new(ComponentContainer::new()),
             properties_cache: DashMap::new(),
@@ -380,7 +380,10 @@ impl ApplicationContext {
     pub fn builder() -> ApplicationContextBuilder {
         ApplicationContextBuilder::new()
     }
-
+    fn initialize_early(&self) -> ContextResult<()> {
+        
+        Ok(())
+    }
     /// Initializes the application context
     ///
     /// This method initializes the IoC container and performs any other
@@ -399,6 +402,7 @@ impl ApplicationContext {
     /// context.initialize().unwrap();
     /// ```
     pub fn initialize(&self) -> ContextResult<()> {
+        self.initialize_early()?;
         // Publish context-initializing event at the start
         let initializing_event = ContextInitializingEvent {
             config_sources_count: self.config_manager.sources_count(),
@@ -541,8 +545,8 @@ impl ApplicationContext {
     ///
     /// assert_eq!(context.get_config("runtime.property"), "runtime.value");
     /// ```
-    pub fn set_config(&mut self, key: &str, value: &str) {
-        // Get old value for the event
+    /// Sets a configuration property
+    pub fn set_config(&self, key: &str, value: &str) {
         let old_value = self.get_config(key);
         let old_value_opt = if old_value.is_empty() {
             None
@@ -550,11 +554,9 @@ impl ApplicationContext {
             Some(old_value)
         };
 
-        // Set the new configuration value
         self.config_manager
             .set(key, ConfigValue::String(value.to_string()));
 
-        // Publish configuration changed event
         let event = ConfigurationChangedEvent {
             key: key.to_string(),
             old_value: old_value_opt,
@@ -565,15 +567,7 @@ impl ApplicationContext {
     }
 
     /// Adds a configuration source
-    ///
-    /// # Arguments
-    ///
-    /// * `source` - The configuration source to add
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the source cannot be added
-    pub fn add_config_source(&mut self, source: ConfigSource) -> ContextResult<()> {
+    pub fn add_config_source(&self, source: ConfigSource) -> ContextResult<()> {
         self.config_manager.add_source(source)
     }
 
@@ -593,6 +587,11 @@ impl ApplicationContext {
     /// ```
     pub fn container(&self) -> Arc<ComponentContainer> {
         self.container.clone()
+    }
+    
+    /// Gets a shared reference to the ConfigManager for IoC registration
+    pub fn config_manager(&self) -> Arc<ConfigManager> {
+        self.config_manager.clone()
     }
 
     /// Gets a component from the IoC container
@@ -688,11 +687,12 @@ impl ApplicationContext {
     /// let mut context = ApplicationContext::new();
     /// context.subscribe_to_context_events(StartupListener);
     /// ```
+    /// Subscribes to events with context access
     pub fn subscribe_to_context_events<
         T: Event + 'static,
         L: ContextAwareEventListener<T> + 'static,
     >(
-        &mut self,
+        &self,
         listener: L,
     ) {
         self.event_publisher.subscribe_context_aware(listener);
@@ -728,40 +728,17 @@ impl ApplicationContext {
     /// let mut context = ApplicationContext::new();
     /// context.subscribe_to_events(TestListener);
     /// ```
+    /// Subscribes to events
     pub fn subscribe_to_events<T: Event + 'static, L: EventListener<T> + 'static>(
-        &mut self,
+        &self,
         listener: L,
     ) {
         self.event_publisher.subscribe(listener);
     }
 
     /// Gets the active profiles
-    ///
-    /// # Returns
-    ///
-    /// A slice of active profile names
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use verdure_context::{ApplicationContext, Profile};
-    /// use std::collections::HashMap;
-    ///
-    /// let mut props = HashMap::new();
-    /// props.insert("env".to_string(), "development".to_string());
-    /// let profile = Profile::new("development", props);
-    ///
-    /// let context = ApplicationContext::builder()
-    ///     .with_profile(profile)
-    ///     .with_active_profile("development")
-    ///     .build()
-    ///     .unwrap();
-    ///
-    /// let profiles = context.active_profiles();
-    /// assert_eq!(profiles, &["development"]);
-    /// ```
-    pub fn active_profiles(&self) -> &[String] {
-        self.config_manager.profile_manager().active_profiles()
+    pub fn active_profiles(&self) -> Vec<String> {
+        self.config_manager.profile_manager().active_profiles().to_vec()
     }
 
     /// Checks if a specific profile is active
@@ -861,13 +838,13 @@ mod tests {
             .build()
             .unwrap();
 
-        assert_eq!(context.active_profiles(), &["test"]);
+        assert_eq!(context.active_profiles(), vec!["test"]);
         assert_eq!(context.get_config("app.name"), "TestApp");
     }
 
     #[test]
     fn test_configuration_management() {
-        let mut context = ApplicationContext::new();
+        let context = ApplicationContext::new();
 
         let mut props = HashMap::new();
         props.insert(
@@ -906,7 +883,7 @@ mod tests {
 
     #[test]
     fn test_runtime_configuration() {
-        let mut context = ApplicationContext::new();
+        let context = ApplicationContext::new();
 
         context.set_config("runtime.property", "runtime.value");
         assert_eq!(context.get_config("runtime.property"), "runtime.value");
@@ -930,7 +907,7 @@ mod tests {
             .build()
             .unwrap();
 
-        assert_eq!(context.active_profiles(), &["development", "local"]);
+        assert_eq!(context.active_profiles(), vec!["development", "local"]);
         assert!(context.is_profile_active("development"));
         assert!(context.is_profile_active("local"));
         assert!(!context.is_profile_active("production"));
@@ -993,7 +970,7 @@ mod tests {
             received: received.clone(),
         };
 
-        let mut context = ApplicationContext::new();
+        let context = ApplicationContext::new();
         context.subscribe_to_events(listener);
 
         let event = TestContextEvent {

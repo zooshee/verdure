@@ -466,7 +466,7 @@ impl EventPublisher {
         T: Event + 'static,
         L: ContextAwareEventListener<T> + 'static,
     >(
-        &mut self,
+        &self,
         listener: L,
     ) {
         let type_id = TypeId::of::<T>();
@@ -508,7 +508,7 @@ impl EventPublisher {
     /// let mut publisher = EventPublisher::new();
     /// publisher.subscribe(MyListener);
     /// ```
-    pub fn subscribe<T: Event + 'static, L: EventListener<T> + 'static>(&mut self, listener: L) {
+    pub fn subscribe<T: Event + 'static, L: EventListener<T> + 'static>(&self, listener: L) {
         let type_id = TypeId::of::<T>();
         let typed_listener = Arc::new(TypedEventListener::new(listener));
 

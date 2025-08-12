@@ -6,10 +6,12 @@
 
 use crate::error::{ContextError, ContextResult};
 use crate::profile::ProfileManager;
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
 
 pub trait ConfigComponent {
     fn from_config_manager(config_manager: &ConfigManager) -> ContextResult<Self>
@@ -228,55 +230,43 @@ impl ConfigValue {
 /// assert_eq!(manager.get_string("app.name").unwrap(), "MyApp");
 /// assert_eq!(manager.get_integer("app.port").unwrap(), 8080);
 /// ```
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct ConfigManager {
-    /// Configuration sources in order of precedence (last added has highest precedence)
-    sources: Vec<ConfigSource>,
-    /// Cached configuration values
-    cache: DashMap<String, ConfigValue>,
+    /// Configuration sources in precedence order (last added = highest precedence)
+    sources: Arc<RwLock<Vec<ConfigSource>>>,
+    
+    /// Primary configuration cache
+    cache: Arc<DashMap<String, ConfigValue>>,
+    
+    /// File content cache to avoid repeated file I/O
+    file_cache: Arc<DashMap<String, HashMap<String, String>>>,
+    
+    /// Cache invalidation tracking
+    dirty_keys: Arc<DashSet<String>>,
+    
     /// Profile manager for environment-specific configurations
-    profile_manager: ProfileManager,
+    profile_manager: Arc<RwLock<ProfileManager>>,
 }
 
 impl ConfigManager {
     /// Creates a new configuration manager
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use verdure_context::ConfigManager;
-    ///
-    /// let manager = ConfigManager::new();
-    /// ```
     pub fn new() -> Self {
         Self {
-            sources: Vec::new(),
-            cache: DashMap::new(),
-            profile_manager: ProfileManager::new(),
+            sources: Arc::new(RwLock::new(Vec::new())),
+            cache: Arc::new(DashMap::new()),
+            file_cache: Arc::new(DashMap::new()),
+            dirty_keys: Arc::new(DashSet::new()),
+            profile_manager: Arc::new(RwLock::new(ProfileManager::new())),
         }
     }
 
     /// Adds a configuration source
-    ///
-    /// Sources added later have higher precedence than those added earlier.
-    ///
-    /// # Arguments
-    ///
-    /// * `source` - The configuration source to add
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use verdure_context::{ConfigManager, ConfigSource};
-    /// use std::collections::HashMap;
-    ///
-    /// let mut manager = ConfigManager::new();
-    /// let props = HashMap::new();
-    ///
-    /// manager.add_source(ConfigSource::Properties(props)).unwrap();
-    /// ```
-    pub fn add_source(&mut self, source: ConfigSource) -> ContextResult<()> {
-        self.sources.push(source);
+    pub fn add_source(&self, source: ConfigSource) -> ContextResult<()> {
+        {
+            let mut sources = self.sources.write();
+            sources.push(source);
+        }
+        
         self.invalidate_cache();
         Ok(())
     }
@@ -390,27 +380,36 @@ impl ConfigManager {
     /// let value = manager.get("test.key");
     /// assert!(value.is_some());
     /// ```
+    /// Gets a configuration value
     pub fn get(&self, key: &str) -> Option<ConfigValue> {
-        // Check cache first
         if let Some(cached) = self.cache.get(key) {
             return Some(cached.clone());
         }
-
-        // Check profile manager first (profiles have highest precedence)
-        if let Some(profile_value) = self.profile_manager.get_property(key) {
-            let value = ConfigValue::String(profile_value.to_string());
-            self.cache.insert(key.to_string(), value.clone());
-            return Some(value);
-        }
-
-        // Check sources in reverse order (last added has highest precedence)
-        for source in self.sources.iter().rev() {
-            if let Some(value) = self.get_from_source(source, key) {
+        
+        self.get_and_cache(key)
+    }
+    
+    /// Internal method to compute and cache configuration values
+    fn get_and_cache(&self, key: &str) -> Option<ConfigValue> {
+        {
+            let profile_manager = self.profile_manager.read();
+            if let Some(profile_value) = profile_manager.get_property(key) {
+                let value = ConfigValue::String(profile_value.to_string());
                 self.cache.insert(key.to_string(), value.clone());
                 return Some(value);
             }
         }
-
+        
+        {
+            let sources = self.sources.read();
+            for source in sources.iter().rev() {
+                if let Some(value) = self.get_from_source(source, key) {
+                    self.cache.insert(key.to_string(), value.clone());
+                    return Some(value);
+                }
+            }
+        }
+        
         None
     }
 
@@ -585,8 +584,13 @@ impl ConfigManager {
     /// let manager = ConfigManager::new();
     /// let profile_manager = manager.profile_manager();
     /// ```
-    pub fn profile_manager(&self) -> &ProfileManager {
-        &self.profile_manager
+    /// Gets a read-only reference to the profile manager
+    ///
+    /// Uses a read lock to provide safe concurrent access.
+    /// For most operations, prefer specific methods like `active_profiles()`
+    /// which don't require holding the lock.
+    pub fn profile_manager(&self) -> parking_lot::RwLockReadGuard<'_, ProfileManager> {
+        self.profile_manager.read()
     }
 
     /// Gets a mutable reference to the profile manager
@@ -602,8 +606,12 @@ impl ConfigManager {
     ///
     /// manager.profile_manager_mut().add_profile(profile).unwrap();
     /// ```
-    pub fn profile_manager_mut(&mut self) -> &mut ProfileManager {
-        &mut self.profile_manager
+    /// Gets a write lock to the profile manager
+    ///
+    /// Use this method sparingly and hold the lock for minimal time.
+    /// Most profile operations should go through specific methods.
+    pub fn profile_manager_mut(&self) -> parking_lot::RwLockWriteGuard<'_, ProfileManager> {
+        self.profile_manager.write()
     }
 
     /// Sets a configuration property
@@ -623,7 +631,8 @@ impl ConfigManager {
     ///
     /// assert_eq!(manager.get_string("runtime.property").unwrap(), "value");
     /// ```
-    pub fn set(&mut self, key: &str, value: ConfigValue) {
+    /// Sets a runtime configuration value
+    pub fn set(&self, key: &str, value: ConfigValue) {
         self.cache.insert(key.to_string(), value);
     }
 
@@ -633,15 +642,21 @@ impl ConfigManager {
     ///
     /// The total number of configuration sources
     pub fn sources_count(&self) -> usize {
-        self.sources.len()
+        self.sources.read().len()
     }
 
     /// Invalidates the configuration cache
-    ///
-    /// This forces the manager to reload configuration values from sources
-    /// on the next access.
     pub fn invalidate_cache(&self) {
         self.cache.clear();
+        self.dirty_keys.clear();
+    }
+    
+    /// Invalidates specific cache keys
+    pub fn invalidate_keys(&self, keys: &[String]) {
+        for key in keys {
+            self.cache.remove(key);
+            self.dirty_keys.insert(key.clone());
+        }
     }
 
     // Helper method to get value from a specific source
@@ -922,12 +937,12 @@ mod tests {
     #[test]
     fn test_config_manager_creation() {
         let manager = ConfigManager::new();
-        assert!(manager.sources.is_empty());
+        assert_eq!(manager.sources_count(), 0);
     }
 
     #[test]
     fn test_config_manager_properties_source() {
-        let mut manager = ConfigManager::new();
+        let manager = ConfigManager::new();
         let mut props = HashMap::new();
         props.insert("app.name".to_string(), "TestApp".to_string());
         props.insert("app.port".to_string(), "8080".to_string());
@@ -957,7 +972,7 @@ mod tests {
 
     #[test]
     fn test_config_manager_source_precedence() {
-        let mut manager = ConfigManager::new();
+        let manager = ConfigManager::new();
 
         // Add first source
         let mut props1 = HashMap::new();
@@ -983,7 +998,7 @@ mod tests {
 
     #[test]
     fn test_config_manager_cache() {
-        let mut manager = ConfigManager::new();
+        let manager = ConfigManager::new();
         let mut props = HashMap::new();
         props.insert("test.key".to_string(), "test.value".to_string());
 
@@ -1005,7 +1020,7 @@ mod tests {
 
     #[test]
     fn test_config_manager_cache_invalidation() {
-        let mut manager = ConfigManager::new();
+        let manager = ConfigManager::new();
         let mut props = HashMap::new();
         props.insert("test.key".to_string(), "test.value".to_string());
 
@@ -1106,7 +1121,7 @@ file.path=C:\\Users\\Test
 
     #[test]
     fn test_config_source_types() {
-        let mut manager = ConfigManager::new();
+        let manager = ConfigManager::new();
 
         // Test different source types
         let mut props = HashMap::new();
@@ -1119,7 +1134,7 @@ file.path=C:\\Users\\Test
 
     #[test]
     fn test_multiple_config_formats() {
-        let mut manager = ConfigManager::new();
+        let manager = ConfigManager::new();
 
         // Add properties source
         let mut props = HashMap::new();
