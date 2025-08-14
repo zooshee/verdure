@@ -298,6 +298,7 @@ name = "verdure-context"
 version = "0.0.1"
 dependencies = [
  "dashmap",
+ "inventory",
  "parking_lot",
  "serde",
  "serde_yaml",

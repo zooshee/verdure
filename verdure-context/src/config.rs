@@ -4,6 +4,7 @@
 //! It supports hierarchical configuration sources, property binding, type-safe configuration
 //! access, and integration with environment profiles.
 
+use std::any::TypeId;
 use crate::error::{ContextError, ContextResult};
 use crate::profile::ProfileManager;
 use dashmap::{DashMap, DashSet};
@@ -12,14 +13,22 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
+use verdure_ioc::{ComponentInstance, ComponentScope};
 
-pub trait ConfigComponent {
-    fn from_config_manager(config_manager: &ConfigManager) -> ContextResult<Self>
+pub trait ConfigInitializer {
+    fn from_config_manager(config_manager: Arc<ConfigManager>) -> ContextResult<Self>
     where
         Self: Sized;
 
     fn config_module_key() -> &'static str;
 }
+
+pub struct ConfigFactory {
+    pub type_id: fn() -> TypeId,
+    pub create_fn: fn(Arc<ConfigManager>) -> ContextResult<ComponentInstance>,
+}
+
+inventory::collect!(ConfigFactory);
 
 /// Configuration file formats
 #[derive(Debug, Clone, Copy)]

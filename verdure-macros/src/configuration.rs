@@ -10,8 +10,8 @@ pub(crate) fn impl_configuration_derive(input: &DeriveInput) -> TokenStream {
     let struct_init = generate_struct_initialization(&input.data);
 
     let expanded = quote! {
-        impl ::verdure::config::ConfigComponent for #struct_name {
-            fn from_config_manager(config_manager: &::verdure::config::ConfigManager) -> ::verdure::ContextResult<Self> {
+        impl ::verdure::config::ConfigInitializer for #struct_name {
+            fn from_config_manager(config_manager: std::sync::Arc<::verdure::config::ConfigManager>) -> ::verdure::ContextResult<Self> {
                 let mut instance = Self {
                     #(#struct_init)*
                 };
@@ -21,6 +21,15 @@ pub(crate) fn impl_configuration_derive(input: &DeriveInput) -> TokenStream {
 
             fn config_module_key() -> &'static str {
                 #config_module_key
+            }
+        }
+        ::inventory::submit! {
+            ::verdure::config::ConfigFactory {
+                type_id: || std::any::TypeId::of::<#struct_name>(),
+                create_fn: |config_manager| {
+                    let instance = <#struct_name as ::verdure::config::ConfigInitializer>::from_config_manager(config_manager)?;
+                    Ok(std::sync::Arc::new(instance))
+                },
             }
         }
     };

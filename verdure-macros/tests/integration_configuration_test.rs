@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use verdure::config::{ConfigComponent, ConfigManager, ConfigSource};
+use std::sync::Arc;
+use verdure::config::{ConfigInitializer, ConfigManager, ConfigSource};
 use verdure_macros::Configuration;
 
 #[derive(Configuration, Debug)]
@@ -21,7 +22,7 @@ fn test_configuration_derive() {
 
 #[test]
 fn test_configuration_with_config_manager() {
-    let mut config_manager = ConfigManager::new();
+    let mut config_manager = Arc::new(ConfigManager::new());
 
     let mut props = HashMap::new();
     props.insert("server.port".to_string(), "9000".to_string());
@@ -33,7 +34,7 @@ fn test_configuration_with_config_manager() {
         .add_source(ConfigSource::Properties(props))
         .unwrap();
 
-    let config = ServerConfig::from_config_manager(&config_manager).unwrap();
+    let config = ServerConfig::from_config_manager(config_manager.clone()).unwrap();
 
     assert_eq!(config.port, Some(9000));
     assert_eq!(config.host, Some("0.0.0.0".to_string()));
@@ -43,8 +44,8 @@ fn test_configuration_with_config_manager() {
 
 #[test]
 fn test_configuration_with_defaults() {
-    let config_manager = ConfigManager::new();
-    let config = ServerConfig::from_config_manager(&config_manager).unwrap();
+    let config_manager = Arc::new(ConfigManager::new());
+    let config = ServerConfig::from_config_manager(config_manager.clone()).unwrap();
 
     assert_eq!(config.port, Some(8080));
     assert_eq!(config.host, Some("localhost".to_string()));

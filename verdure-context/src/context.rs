@@ -4,7 +4,7 @@
 //! central hub for application-wide state, configuration, environment management, and
 //! integration with the IoC container.
 
-use crate::config::{ConfigManager, ConfigSource, ConfigValue};
+use crate::config::{ConfigFactory, ConfigManager, ConfigSource, ConfigValue};
 use crate::error::{ContextError, ContextResult};
 use crate::event::{
     ConfigurationChangedEvent, ContextAwareEventListener, ContextInitializedEvent,
@@ -381,7 +381,12 @@ impl ApplicationContext {
         ApplicationContextBuilder::new()
     }
     fn initialize_early(&self) -> ContextResult<()> {
-        
+        self.container.register_component(self.config_manager.clone());
+
+        for factory in inventory::iter::<ConfigFactory> {
+            let config_component = (factory.create_fn)(self.config_manager.clone())?;
+            self.container.register_component(config_component);
+        }
         Ok(())
     }
     /// Initializes the application context

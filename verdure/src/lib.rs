@@ -164,6 +164,7 @@
 
 // Re-export the Component derive macro
 pub use verdure_macros::Component;
+pub use verdure_macros::Configuration;
 
 // Re-export error handling types
 pub use verdure_core::error;
