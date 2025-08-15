@@ -103,7 +103,7 @@ datasource:
 ```rust
 use std::sync::Arc;
 use verdure::event::{ContextAwareEventListener, ContextInitializingEvent};
-use verdure::{ApplicationContext, ComponentFactory, Configuration};
+use verdure::{ApplicationContext, ComponentFactory, Configuration, Component};
 
 #[derive(Debug, Configuration)]
 #[configuration("server")]
@@ -185,6 +185,20 @@ fn init_context() -> Arc<ApplicationContext> {
         }
         Err(e) => panic!("failed to new context: {}", e),
     }
+}
+
+#[derive(Component)]
+struct TestA {
+    #[autowired]
+    test_b: Arc<TestB>,
+    test_c: Option<TestC>,
+    test_d: TestD
+}
+
+#[derive(Component)]
+struct TestB {
+    a: i32,
+    b: i32,
 }
 
 fn main() {
