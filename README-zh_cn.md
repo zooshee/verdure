@@ -71,10 +71,108 @@ inventory = "0.3"
 ```
 底层目前强依赖于 `inventory`，感谢这个优秀的 Repo。
 
+## Context - 推荐
+### 快速使用
+#### Configuration 自动读取配置文件
+`application.yml`示例文件:
+```yaml
+server:
+  name: TestApp
+  port: 8080
+datasource:
+  host: 127.0.0.1
+  username: root
+  password: 123456
+  database: test
+```
+带有`Configuration`的`derive`结构体会自动注册成`Component`自动读取配置并装载，若配置文件中不存在该键值则会使用`config_default`或`config_default_t`，如果不存在默认值则为`None`,
+需要注意的是字段类型必须使用`Option<T>`包装。
+```rust
+use std::sync::Arc;
+use verdure::event::{ContextAwareEventListener, ContextInitializingEvent};
+use verdure::{ApplicationContext, ComponentFactory, Configuration};
+
+#[derive(Debug, Configuration)]
+#[configuration("server")]
+struct ServerConfig {
+    // server.name
+    name: Option<String>,
+    // server.port
+    #[config_default(8080)]
+    port: Option<u32>,
+}
+#[derive(Debug, Configuration)]
+#[configuration("datasource")]
+struct DatasourceConfig {
+    // datasource.host
+    #[config_default_t(Some(get_host()))]
+    host: Option<String>,
+    // datasource.port
+    #[config_default(3306)]
+    port: Option<u32>,
+    // datasource.username
+    #[config_default("......")]
+    username: Option<String>,
+    // datasource.password
+    #[config_default("......")]
+    password: Option<String>,
+    // datasource.database
+    #[config_default("test_db")]
+    database: Option<String>,
+}
+
+fn get_host() -> String {
+    "127.0.0.1".to_string()
+}
+```
+#### ApplicationContext 初始化
+```rust
+struct ApplicationStartEvent;
+impl ContextAwareEventListener<ContextInitializingEvent> for ApplicationStartEvent {
+    fn on_context_event(&self, _event: &ContextInitializingEvent, context: &ApplicationContext) {
+        let container = context.container();
+        let datasource_config = container
+            .get_component::<DatasourceConfig>()
+            .expect("datasource config not found")
+            .clone();
+        // ... do something with datasource_config
+        // context.register_component(Arc::new(datasource_component));
+    }
+}
+
+fn init_context() -> Arc<ApplicationContext> {
+    let context = ApplicationContext::builder()
+        // Load a configuration file in YAML, TOML, or Properties format.
+        .with_config_file("application.yml")
+        .build();
+    match context {
+        Ok(context) => {
+            context.subscribe_to_context_events(ApplicationStartEvent);
+            match context.initialize() {
+                Ok(_) => Arc::new(context),
+                Err(e) => {
+                    panic!("failed to initialize context: {}", e);
+                }
+            }
+        }
+        Err(e) => panic!("failed to new context: {}", e),
+    }
+}
+
+fn main() {
+    let context = init_context();
+    let server_config = context
+        .get_component::<ServerConfig>()
+        .expect("datasource config not found");
+    println!("server config: {:?}", server_config);
+    // ... do something with context
+    // get more component......
+}
+```
 ## IoC / DI
 
 ### 初始化容器
-
+推荐使用`ApplicationContext`
 ```rust
 use std::sync::Arc;
 
