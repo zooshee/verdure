@@ -13,7 +13,7 @@ use crate::event::{
 use dashmap::DashMap;
 use std::path::Path;
 use std::sync::Arc;
-use verdure_ioc::{ComponentContainer, ComponentFactory};
+use verdure_ioc::{ComponentContainer, ComponentFactory, ComponentInstance};
 
 /// Application context builder
 ///
@@ -535,6 +535,10 @@ impl ApplicationContext {
     /// ```
     pub fn get_component<T: 'static + Send + Sync>(&self) -> Option<Arc<T>> {
         self.container.get_component()
+    }
+    /// Registers a pre-created component instance with the context container
+    pub fn register_component(&self, instance: ComponentInstance) {
+        self.container.register_component(instance)
     }
 
     /// Publishes an event
