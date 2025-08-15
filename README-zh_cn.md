@@ -14,12 +14,12 @@ Verdure - Rust 的生态框架
 
 ## 生态模块
 
-### ✅ 当前版本 (v0.0.1) - 基础设施
+### ✅ 当前版本 (v0.0.5) - 应用上下文
 
 - **verdure-core**: 基础类型、错误处理和通用工具
-- **verdure-ioc**: 依赖注入容器和组件管理  
+- **verdure-ioc**: 依赖注入容器和组件管理
 - **verdure-macros**: 编译时代码生成和注解处理
-- **verdure-context**: 应用上下文和环境管理 (🚧)
+- **verdure-context**: 应用上下文和配置管理
 
 ### 🚧 即将发布 - 完整生态系统
 
@@ -43,7 +43,7 @@ Verdure - Rust 的生态框架
 - verdure-oauth: OAuth2 和 OpenID Connect 集成
 
 
-## 当前特性 (v0.0.1)
+## 当前特性 (v0.0.5)
 
 - [x] **IoC 容器**: 具有自动解析的全面依赖注入
 - [x] **组件生命周期**: 单例和原型作用域，带生命周期事件
@@ -51,10 +51,14 @@ Verdure - Rust 的生态框架
 - [x] **事件系统**: 容器和组件生命周期事件处理
 - [x] **循环依赖检测**: 防止无限依赖循环
 - [x] **线程安全**: 多线程应用程序的完全并发访问支持
+- [x] **应用上下文**: 全面的应用上下文管理和事件系统
+- [x] **自动化配置**: 配置文件自动读取和组件装配
+- [x] **多格式配置支持**: YAML、TOML 和 Properties 文件格式
+- [x] **默认值支持**: `#[config_default]` 和 `#[config_default_t]` 属性
 
 ### 📋 路线图 - 构建完整生态系统
 
-- [ ] **自动配置**: 开箱即用的应用程序引导
+- [ ] **自动配置**: 开箱即用的应用程序引导和配置管理 🚧
 - [ ] **Web 框架**: MVC 模式和 REST API 开发
 - [ ] **数据访问**: 仓库模式和 ORM 集成
 - [ ] **安全框架**: 认证和授权
@@ -66,7 +70,7 @@ Verdure - Rust 的生态框架
 ## 引入依赖
 
 ```toml
-verdure = "0.0.1"
+verdure = "0.0.5"
 inventory = "0.3"
 ```
 底层目前强依赖于 `inventory`，感谢这个优秀的 Repo。
@@ -85,8 +89,17 @@ datasource:
   password: 123456
   database: test
 ```
-带有`Configuration`的`derive`结构体会自动注册成`Component`自动读取配置并装载，若配置文件中不存在该键值则会使用`config_default`或`config_default_t`，如果不存在默认值则为`None`,
+带有`Configuration`的`derive`结构体会自动注册成`Component`自动读取配置并装载，若配置文件中不存在该键值则会使用`config_default`或`config_default_t`，如果不存在默认值则为`None`。
 需要注意的是字段类型必须使用`Option<T>`包装。
+
+**支持的配置格式**：
+- **YAML**: `.yml`, `.yaml` 文件
+- **TOML**: `.toml` 文件 
+- **Properties**: `.properties` 文件
+
+**默认值属性**：
+- `#[config_default(value)]`: 提供字面量默认值
+- `#[config_default_t(expression)]`: 提供表达式默认值，支持复杂计算
 ```rust
 use std::sync::Arc;
 use verdure::event::{ContextAwareEventListener, ContextInitializingEvent};
@@ -101,6 +114,7 @@ struct ServerConfig {
     #[config_default(8080)]
     port: Option<u32>,
 }
+
 #[derive(Debug, Configuration)]
 #[configuration("datasource")]
 struct DatasourceConfig {
@@ -125,6 +139,20 @@ fn get_host() -> String {
     "127.0.0.1".to_string()
 }
 ```
+
+#### 高级配置特性
+
+**配置优先级**（从高到低）：
+1. 运行时属性：通过 `set_config()` 设置的值
+2. 配置源：通过 `add_config_source()` 添加的源（后添加的优先）
+3. 环境变量：系统环境变量
+4. 配置文件：通过各种方法加载的文件
+
+**事件系统**：
+- `ContextInitializingEvent`: 上下文初始化开始时触发
+- `ContextInitializedEvent`: 上下文初始化完成时触发
+- `ConfigurationChangedEvent`: 配置改变时触发
+```
 #### ApplicationContext 初始化
 ```rust
 struct ApplicationStartEvent;
@@ -142,7 +170,7 @@ impl ContextAwareEventListener<ContextInitializingEvent> for ApplicationStartEve
 
 fn init_context() -> Arc<ApplicationContext> {
     let context = ApplicationContext::builder()
-        // Load a configuration file in YAML, TOML, or Properties format.
+        // 加载配置文件（支持 YAML、TOML、Properties 格式）
         .with_config_file("application.yml")
         .build();
     match context {

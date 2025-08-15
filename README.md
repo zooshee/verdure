@@ -13,12 +13,12 @@ The project is currently in the foundational development phase. We are looking f
 
 ## Ecosystem Modules
 
-### ✅ Current Release (v0.0.1) - Foundation
+### ✅ Current Release (v0.0.5) - Application Context
 
 - **verdure-core**: Foundation types, error handling, and common utilities
-- **verdure-ioc**: Dependency injection container and component management  
+- **verdure-ioc**: Dependency injection container and component management
 - **verdure-macros**: Compile-time code generation and annotation processing
-- **verdure-context**: Application context and environment management (🚧)
+- **verdure-context**: Application context and configuration management
 
 ### 🚧 Upcoming Releases - Complete Ecosystem
 
@@ -42,7 +42,7 @@ The project is currently in the foundational development phase. We are looking f
 - verdure-oauth: OAuth2 and OpenID Connect integration
 
 
-## Current Features (v0.0.1)
+## Current Features (v0.0.5)
 
 - [x] **IoC Container**: Comprehensive dependency injection with automatic resolution
 - [x] **Component Lifecycle**: Singleton and prototype scopes with lifecycle events
@@ -50,10 +50,14 @@ The project is currently in the foundational development phase. We are looking f
 - [x] **Event System**: Container and component lifecycle event handling
 - [x] **Circular Dependency Detection**: Prevents infinite dependency loops
 - [x] **Thread Safety**: Full concurrent access support for multi-threaded applications
+- [x] **Application Context**: Comprehensive application context management and event system
+- [x] **Auto-Configuration**: Automatic configuration file reading and component assembly
+- [x] **Multi-Format Configuration Support**: YAML, TOML, and Properties file formats
+- [x] **Default Value Support**: `#[config_default]` and `#[config_default_t]` attributes
 
 ### 📋 Roadmap - Building the Complete Ecosystem
 
-- [ ] **Auto-Configuration**: Out-of-the-box application bootstrapping
+- [ ] **Auto-Configuration**: Out-of-the-box application bootstrapping and configuration management  🚧
 - [ ] **Web Framework**: MVC patterns and REST API development
 - [ ] **Data Access**: Repository patterns and ORM integration
 - [ ] **Security Framework**: Authentication and authorization
@@ -66,7 +70,7 @@ The project is currently in the foundational development phase. We are looking f
 ## Add Dependency
 
 ```toml
-verdure = "0.0.1"
+verdure = "0.0.5"
 inventory = "0.3"
 ```
 The underlying implementation heavily relies on inventory. Our thanks go to the authors of this excellent repository.
@@ -85,8 +89,17 @@ datasource:
   password: 123456
   database: test
 ```
-Structs with the `Configuration` derive are automatically registered as `Component` instances and will automatically read configuration and load it. If the key does not exist in the configuration file, it will use `config_default` or `config_default_t`. If there is no default value, it will be `None`. 
+Structs with the `Configuration` derive are automatically registered as `Component` instances and will automatically read configuration and load it. If the key does not exist in the configuration file, it will use `config_default` or `config_default_t`. If there is no default value, it will be `None`.
 Note that field types must be wrapped with `Option<T>`.
+
+**Supported Configuration Formats**:
+- **YAML**: `.yml`, `.yaml` files
+- **TOML**: `.toml` files
+- **Properties**: `.properties` files
+
+**Default Value Attributes**:
+- `#[config_default(value)]`: Provide literal default values
+- `#[config_default_t(expression)]`: Provide expression-based default values, supporting complex calculations
 ```rust
 use std::sync::Arc;
 use verdure::event::{ContextAwareEventListener, ContextInitializingEvent};
@@ -101,6 +114,7 @@ struct ServerConfig {
     #[config_default(8080)]
     port: Option<u32>,
 }
+
 #[derive(Debug, Configuration)]
 #[configuration("datasource")]
 struct DatasourceConfig {
@@ -125,6 +139,20 @@ fn get_host() -> String {
     "127.0.0.1".to_string()
 }
 ```
+
+#### Advanced Configuration Features
+
+**Configuration Precedence** (from highest to lowest):
+1. Runtime Properties: Values set via `set_config()`
+2. Configuration Sources: Sources added via `add_config_source()` (last added wins)
+3. Environment Variables: System environment variables
+4. Configuration Files: Files loaded via various methods
+
+**Event System**:
+- `ContextInitializingEvent`: Triggered when context initialization begins
+- `ContextInitializedEvent`: Triggered when context initialization completes
+- `ConfigurationChangedEvent`: Triggered when configuration changes at runtime
+```
 #### ApplicationContext Initialization
 ```rust
 struct ApplicationStartEvent;
@@ -142,7 +170,7 @@ impl ContextAwareEventListener<ContextInitializingEvent> for ApplicationStartEve
 
 fn init_context() -> Arc<ApplicationContext> {
     let context = ApplicationContext::builder()
-        // Load a configuration file in YAML, TOML, or Properties format.
+        // Load configuration files (supports YAML, TOML, Properties formats)
         .with_config_file("application.yml")
         .build();
     match context {
