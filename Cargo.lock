@@ -285,7 +285,7 @@ checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
 
 [[package]]
 name = "verdure"
-version = "0.0.1"
+version = "0.0.5"
 dependencies = [
  "verdure-context",
  "verdure-core",
@@ -295,7 +295,7 @@ dependencies = [
 
 [[package]]
 name = "verdure-context"
-version = "0.0.1"
+version = "0.0.5"
 dependencies = [
  "dashmap",
  "inventory",
@@ -308,11 +308,11 @@ dependencies = [
 
 [[package]]
 name = "verdure-core"
-version = "0.0.1"
+version = "0.0.5"
 
 [[package]]
 name = "verdure-ioc"
-version = "0.0.1"
+version = "0.0.5"
 dependencies = [
  "dashmap",
  "inventory",
@@ -321,7 +321,7 @@ dependencies = [
 
 [[package]]
 name = "verdure-macros"
-version = "0.0.1"
+version = "0.0.5"
 dependencies = [
  "inventory",
  "proc-macro2",
