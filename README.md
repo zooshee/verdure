@@ -152,8 +152,9 @@ fn get_host() -> String {
 - `ContextInitializingEvent`: Triggered when context initialization begins
 - `ContextInitializedEvent`: Triggered when context initialization completes
 - `ConfigurationChangedEvent`: Triggered when configuration changes at runtime
-```
+
 #### ApplicationContext Initialization
+
 ```rust
 struct ApplicationStartEvent;
 impl ContextAwareEventListener<ContextInitializingEvent> for ApplicationStartEvent {

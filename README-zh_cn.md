@@ -152,8 +152,9 @@ fn get_host() -> String {
 - `ContextInitializingEvent`: 上下文初始化开始时触发
 - `ContextInitializedEvent`: 上下文初始化完成时触发
 - `ConfigurationChangedEvent`: 配置改变时触发
-```
+
 #### ApplicationContext 初始化
+
 ```rust
 struct ApplicationStartEvent;
 impl ContextAwareEventListener<ContextInitializingEvent> for ApplicationStartEvent {
