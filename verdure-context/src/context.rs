@@ -8,9 +8,8 @@ use crate::config::{ConfigFactory, ConfigManager, ConfigSource, ConfigValue};
 use crate::error::{ContextError, ContextResult};
 use crate::event::{
     ConfigurationChangedEvent, ContextAwareEventListener, ContextInitializedEvent,
-    ContextInitializingEvent, Event, EventListener, EventPublisher, ProfileActivatedEvent,
+    ContextInitializingEvent, Event, EventListener, EventPublisher,
 };
-use crate::profile::Profile;
 use dashmap::DashMap;
 use std::path::Path;
 use std::sync::Arc;
@@ -25,23 +24,16 @@ use verdure_ioc::{ComponentContainer, ComponentFactory};
 /// # Examples
 ///
 /// ```rust
-/// use verdure_context::{ApplicationContextBuilder, Profile};
-/// use std::collections::HashMap;
-///
-/// // Create the profile first
-/// let profile = Profile::new("development", HashMap::new());
+/// use verdure_context::ApplicationContextBuilder;
 ///
 /// let context = ApplicationContextBuilder::new()
-///     .with_profile(profile)
-///     .with_active_profile("development")
+///     .with_property("app.name", "MyApp")
 ///     .build()
 ///     .unwrap();
 /// ```
 #[derive(Debug)]
 pub struct ApplicationContextBuilder {
     config_sources: Vec<ConfigSource>,
-    active_profiles: Vec<String>,
-    profiles: Vec<Profile>,
     properties: std::collections::HashMap<String, String>,
 }
 
@@ -58,8 +50,6 @@ impl ApplicationContextBuilder {
     pub fn new() -> Self {
         Self {
             config_sources: Vec::new(),
-            active_profiles: Vec::new(),
-            profiles: Vec::new(),
             properties: std::collections::HashMap::new(),
         }
     }
@@ -173,46 +163,6 @@ impl ApplicationContextBuilder {
         self
     }
 
-    /// Sets an active profile
-    ///
-    /// # Arguments
-    ///
-    /// * `profile` - The profile name to activate
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use verdure_context::ApplicationContextBuilder;
-    ///
-    /// let builder = ApplicationContextBuilder::new()
-    ///     .with_active_profile("production");
-    /// ```
-    pub fn with_active_profile(mut self, profile: impl Into<String>) -> Self {
-        self.active_profiles.push(profile.into());
-        self
-    }
-
-    /// Adds a profile
-    ///
-    /// # Arguments
-    ///
-    /// * `profile` - The profile to add
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use verdure_context::{ApplicationContextBuilder, Profile};
-    /// use std::collections::HashMap;
-    ///
-    /// let profile = Profile::new("test", HashMap::new());
-    /// let builder = ApplicationContextBuilder::new()
-    ///     .with_profile(profile);
-    /// ```
-    pub fn with_profile(mut self, profile: Profile) -> Self {
-        self.profiles.push(profile);
-        self
-    }
-
     /// Sets a property value
     ///
     /// # Arguments
@@ -246,15 +196,10 @@ impl ApplicationContextBuilder {
     /// # Examples
     ///
     /// ```rust
-    /// use verdure_context::{ApplicationContextBuilder, Profile};
-    /// use std::collections::HashMap;
-    ///
-    /// // Create the profile first
-    /// let profile = Profile::new("development", HashMap::new());
+    /// use verdure_context::ApplicationContextBuilder;
     ///
     /// let context = ApplicationContextBuilder::new()
-    ///     .with_profile(profile)
-    ///     .with_active_profile("development")
+    ///     .with_property("app.name", "MyApp")
     ///     .build()
     ///     .unwrap();
     /// ```
@@ -271,36 +216,6 @@ impl ApplicationContextBuilder {
             context
                 .config_manager
                 .add_source(ConfigSource::Properties(self.properties))?;
-        }
-
-        // Add profiles
-        for profile in self.profiles {
-            context
-                .config_manager
-                .profile_manager_mut()
-                .add_profile(profile)?;
-        }
-
-        // Activate profiles
-        for profile_name in self.active_profiles {
-            context
-                .config_manager
-                .profile_manager_mut()
-                .activate_profile(&profile_name)?;
-
-            // Get properties count for the activated profile
-            let properties_count = context
-                .config_manager
-                .profile_manager()
-                .get_profile_properties_count(&profile_name);
-
-            // Publish profile activated event
-            let event = ProfileActivatedEvent {
-                profile_name: profile_name.clone(),
-                properties_count,
-                timestamp: std::time::SystemTime::now(),
-            };
-            context.event_publisher.publish(&event);
         }
 
         Ok(context)
@@ -411,11 +326,6 @@ impl ApplicationContext {
         // Publish context-initializing event at the start
         let initializing_event = ContextInitializingEvent {
             config_sources_count: self.config_manager.sources_count(),
-            active_profiles_count: self
-                .config_manager
-                .profile_manager()
-                .active_profiles()
-                .len(),
             timestamp: std::time::SystemTime::now(),
         };
         self.event_publisher
@@ -432,11 +342,6 @@ impl ApplicationContext {
         // Publish context initialized event at the end
         let initialized_event = ContextInitializedEvent {
             config_sources_count: self.config_manager.sources_count(),
-            active_profiles_count: self
-                .config_manager
-                .profile_manager()
-                .active_profiles()
-                .len(),
             timestamp: std::time::SystemTime::now(),
         };
         self.event_publisher
@@ -685,7 +590,7 @@ impl ApplicationContext {
     /// impl ContextAwareEventListener<ContextInitializedEvent> for StartupListener {
     ///     fn on_context_event(&self, event: &ContextInitializedEvent, context: &ApplicationContext) {
     ///         println!("Context initialized! App name: {}", context.get_config("app.name"));
-    ///         println!("Active profiles: {:?}", context.active_profiles());
+    ///         println!("Environment: {}", context.environment());
     ///     }
     /// }
     ///
@@ -741,75 +646,22 @@ impl ApplicationContext {
         self.event_publisher.subscribe(listener);
     }
 
-    /// Gets the active profiles
-    pub fn active_profiles(&self) -> Vec<String> {
-        self.config_manager.profile_manager().active_profiles().to_vec()
-    }
-
-    /// Checks if a specific profile is active
-    ///
-    /// # Arguments
-    ///
-    /// * `profile_name` - The profile name to check
-    ///
-    /// # Returns
-    ///
-    /// `true` if the profile is active, `false` otherwise
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use verdure_context::{ApplicationContext, Profile};
-    /// use std::collections::HashMap;
-    ///
-    /// // Create the profiles first
-    /// let prod_profile = Profile::new("production", HashMap::new());
-    /// let dev_profile = Profile::new("development", HashMap::new());
-    ///
-    /// let context = ApplicationContext::builder()
-    ///     .with_profile(prod_profile)
-    ///     .with_profile(dev_profile)
-    ///     .with_active_profile("production")
-    ///     .build()
-    ///     .unwrap();
-    ///
-    /// assert!(context.is_profile_active("production"));
-    /// assert!(!context.is_profile_active("development"));
-    /// ```
-    pub fn is_profile_active(&self, profile_name: &str) -> bool {
-        self.active_profiles().contains(&profile_name.to_string())
-    }
-
     /// Gets environment information
     ///
     /// # Returns
     ///
-    /// A string representing the current environment (based on active profiles)
+    /// A string representing the current environment
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use verdure_context::{ApplicationContext, Profile};
-    /// use std::collections::HashMap;
+    /// use verdure_context::ApplicationContext;
     ///
-    /// // Create the profile first
-    /// let profile = Profile::new("staging", HashMap::new());
-    ///
-    /// let context = ApplicationContext::builder()
-    ///     .with_profile(profile)
-    ///     .with_active_profile("staging")
-    ///     .build()
-    ///     .unwrap();
-    ///
+    /// let context = ApplicationContext::new();
     /// println!("Environment: {}", context.environment());
     /// ```
     pub fn environment(&self) -> String {
-        let profiles = self.active_profiles();
-        if profiles.is_empty() {
-            "default".to_string()
-        } else {
-            profiles.join(",")
-        }
+        "default".to_string()
     }
 }
 
@@ -827,23 +679,17 @@ mod tests {
     #[test]
     fn test_application_context_creation() {
         let context = ApplicationContext::new();
-        assert_eq!(context.active_profiles().len(), 0);
+        // Context created successfully
+        assert_eq!(context.environment(), "default");
     }
 
     #[test]
     fn test_application_context_builder() {
-        let mut props = std::collections::HashMap::new();
-        props.insert("test_key".to_string(), "test_value".to_string());
-        let profile = Profile::new("test", props);
-
         let context = ApplicationContext::builder()
-            .with_profile(profile)
-            .with_active_profile("test")
             .with_property("app.name", "TestApp")
             .build()
             .unwrap();
 
-        assert_eq!(context.active_profiles(), vec!["test"]);
         assert_eq!(context.get_config("app.name"), "TestApp");
     }
 
@@ -894,31 +740,6 @@ mod tests {
         assert_eq!(context.get_config("runtime.property"), "runtime.value");
     }
 
-    #[test]
-    fn test_profile_management() {
-        let mut dev_props = HashMap::new();
-        dev_props.insert("env".to_string(), "dev".to_string());
-        let dev_profile = Profile::new("development", dev_props);
-
-        let mut local_props = HashMap::new();
-        local_props.insert("location".to_string(), "local".to_string());
-        let local_profile = Profile::new("local", local_props);
-
-        let context = ApplicationContext::builder()
-            .with_profile(dev_profile)
-            .with_profile(local_profile)
-            .with_active_profile("development")
-            .with_active_profile("local")
-            .build()
-            .unwrap();
-
-        assert_eq!(context.active_profiles(), vec!["development", "local"]);
-        assert!(context.is_profile_active("development"));
-        assert!(context.is_profile_active("local"));
-        assert!(!context.is_profile_active("production"));
-
-        assert_eq!(context.environment(), "development,local");
-    }
 
     #[test]
     fn test_environment_default() {
@@ -993,14 +814,12 @@ mod tests {
     fn test_built_in_context_events() {
         use crate::event::{
             ConfigurationChangedEvent, ContextInitializedEvent, ContextInitializingEvent,
-            ProfileActivatedEvent,
         };
         use std::sync::{Arc, Mutex};
 
         // Event collectors
         let initializing_events = Arc::new(Mutex::new(Vec::new()));
         let initialized_events = Arc::new(Mutex::new(Vec::new()));
-        let profile_events = Arc::new(Mutex::new(Vec::new()));
         let config_events = Arc::new(Mutex::new(Vec::new()));
 
         // Event listeners
@@ -1020,14 +839,6 @@ mod tests {
             }
         }
 
-        struct ProfileListener(Arc<Mutex<Vec<ProfileActivatedEvent>>>);
-        impl EventListener<ProfileActivatedEvent> for ProfileListener {
-            fn on_event(&self, event: &ProfileActivatedEvent) {
-                let mut events = self.0.lock().unwrap();
-                events.push(event.clone());
-            }
-        }
-
         struct ConfigListener(Arc<Mutex<Vec<ConfigurationChangedEvent>>>);
         impl EventListener<ConfigurationChangedEvent> for ConfigListener {
             fn on_event(&self, event: &ConfigurationChangedEvent) {
@@ -1036,15 +847,8 @@ mod tests {
             }
         }
 
-        // Create context with profile
-        let mut dev_props = HashMap::new();
-        dev_props.insert("env".to_string(), "development".to_string());
-        dev_props.insert("debug".to_string(), "true".to_string());
-        let dev_profile = Profile::new("development", dev_props);
-
-        let mut context = ApplicationContext::builder()
-            .with_profile(dev_profile)
-            .with_active_profile("development")
+        // Create context with configuration
+        let context = ApplicationContext::builder()
             .with_property("initial.key", "initial.value")
             .build()
             .unwrap();
@@ -1052,7 +856,6 @@ mod tests {
         // Subscribe to events BEFORE initialization
         context.subscribe_to_events(InitializingListener(initializing_events.clone()));
         context.subscribe_to_events(InitializedListener(initialized_events.clone()));
-        context.subscribe_to_events(ProfileListener(profile_events.clone()));
         context.subscribe_to_events(ConfigListener(config_events.clone()));
 
         // Initialize context (should fire both ContextInitializingEvent and ContextInitializedEvent)
@@ -1066,19 +869,14 @@ mod tests {
         let initializing_events = initializing_events.lock().unwrap();
         assert_eq!(initializing_events.len(), 1);
         assert!(initializing_events[0].config_sources_count > 0);
-        assert_eq!(initializing_events[0].active_profiles_count, 1);
 
         // Verify initialized events were fired
         let initialized_events = initialized_events.lock().unwrap();
         assert_eq!(initialized_events.len(), 1);
         assert!(initialized_events[0].config_sources_count > 0);
-        assert_eq!(initialized_events[0].active_profiles_count, 1);
 
         // Verify the initializing event was fired before the initialized event
         assert!(initializing_events[0].timestamp <= initialized_events[0].timestamp);
-
-        let profile_events = profile_events.lock().unwrap();
-        assert_eq!(profile_events.len(), 0); // Profile event fired before subscription
 
         let config_events = config_events.lock().unwrap();
         assert_eq!(config_events.len(), 2);
@@ -1129,12 +927,11 @@ mod tests {
                 let mut context_data = self.context_data.lock().unwrap();
                 context_data.push(context.get_config("test.key"));
                 context_data.push(context.environment());
-                context_data.push(format!("profiles: {:?}", context.active_profiles()));
             }
         }
 
         // Create context with some configuration
-        let mut context = ApplicationContext::builder()
+        let context = ApplicationContext::builder()
             .with_property("test.key", "test.value")
             .with_property("app.name", "TestApp")
             .build()
@@ -1156,9 +953,8 @@ mod tests {
         assert!(events[0].contains("Initialized with"));
 
         let context_data = context_data_accessed.lock().unwrap();
-        assert_eq!(context_data.len(), 3);
+        assert_eq!(context_data.len(), 2);
         assert_eq!(context_data[0], "test.value"); // Successfully accessed config
         assert_eq!(context_data[1], "default"); // Successfully accessed environment
-        assert_eq!(context_data[2], "profiles: []"); // Successfully accessed profiles
     }
 }

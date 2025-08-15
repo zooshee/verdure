@@ -35,12 +35,6 @@ pub enum ContextError {
         reason: String,
     },
 
-    /// Environment profile not found
-    ProfileNotFound {
-        /// The profile name that was not found
-        profile: String,
-    },
-
     /// Context initialization failed
     InitializationFailed {
         /// Reason for initialization failure
@@ -76,9 +70,6 @@ impl fmt::Display for ContextError {
             }
             ContextError::InvalidConfiguration { key, reason } => {
                 write!(f, "Invalid configuration for key '{}': {}", key, reason)
-            }
-            ContextError::ProfileNotFound { profile } => {
-                write!(f, "Environment profile not found: {}", profile)
             }
             ContextError::InitializationFailed { reason } => {
                 write!(f, "Context initialization failed: {}", reason)
@@ -126,17 +117,6 @@ impl ContextError {
         Self::InvalidConfiguration {
             key: key.into(),
             reason: reason.into(),
-        }
-    }
-
-    /// Creates a profile not found error
-    ///
-    /// # Arguments
-    ///
-    /// * `profile` - The profile name that was not found
-    pub fn profile_not_found(profile: impl Into<String>) -> Self {
-        Self::ProfileNotFound {
-            profile: profile.into(),
         }
     }
 
@@ -211,16 +191,6 @@ mod tests {
         assert_eq!(
             error.to_string(),
             "Invalid configuration for key 'port': not a number"
-        );
-    }
-
-    #[test]
-    fn test_profile_not_found_error() {
-        let error = ContextError::profile_not_found("development");
-        assert!(matches!(error, ContextError::ProfileNotFound { .. }));
-        assert_eq!(
-            error.to_string(),
-            "Environment profile not found: development"
         );
     }
 

@@ -19,8 +19,6 @@ use std::sync::Arc;
 pub struct ContextInitializingEvent {
     /// Number of configuration sources to be loaded
     pub config_sources_count: usize,
-    /// Number of profiles to be activated
-    pub active_profiles_count: usize,
     /// Initialization start timestamp
     pub timestamp: std::time::SystemTime,
 }
@@ -42,13 +40,11 @@ impl Event for ContextInitializingEvent {
 /// Event fired when the application context is initialized
 ///
 /// This event is published after the context has been fully initialized,
-/// including all configuration sources, profiles, and the IoC container.
+/// including all configuration sources and the IoC container.
 #[derive(Debug, Clone)]
 pub struct ContextInitializedEvent {
     /// Number of configuration sources loaded
     pub config_sources_count: usize,
-    /// Number of active profiles
-    pub active_profiles_count: usize,
     /// Initialization timestamp
     pub timestamp: std::time::SystemTime,
 }
@@ -56,33 +52,6 @@ pub struct ContextInitializedEvent {
 impl Event for ContextInitializedEvent {
     fn name(&self) -> &'static str {
         "ContextInitialized"
-    }
-
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
-    }
-}
-
-/// Event fired when a profile is activated
-///
-/// This event is published whenever a new profile is activated in the context.
-#[derive(Debug, Clone)]
-pub struct ProfileActivatedEvent {
-    /// Name of the activated profile
-    pub profile_name: String,
-    /// Properties count in the activated profile
-    pub properties_count: usize,
-    /// Activation timestamp
-    pub timestamp: std::time::SystemTime,
-}
-
-impl Event for ProfileActivatedEvent {
-    fn name(&self) -> &'static str {
-        "ProfileActivated"
     }
 
     fn as_any(&self) -> &dyn Any {
@@ -748,7 +717,7 @@ mod tests {
 
     #[test]
     fn test_event_subscription() {
-        let mut publisher = EventPublisher::new();
+        let publisher = EventPublisher::new();
         publisher.subscribe(TestListener);
 
         assert_eq!(publisher.listener_count::<TestEvent>(), 1);
@@ -759,7 +728,7 @@ mod tests {
     fn test_event_publishing() {
         TEST_COUNTER.store(0, Ordering::SeqCst);
 
-        let mut publisher = EventPublisher::new();
+        let publisher = EventPublisher::new();
         publisher.subscribe(TestListener);
 
         let event = TestEvent {
@@ -775,7 +744,7 @@ mod tests {
     fn test_multiple_listeners_same_event() {
         TEST_COUNTER.store(0, Ordering::SeqCst);
 
-        let mut publisher = EventPublisher::new();
+        let publisher = EventPublisher::new();
         publisher.subscribe(TestListener);
         publisher.subscribe(TestListener);
 
@@ -793,7 +762,7 @@ mod tests {
     fn test_different_event_types() {
         TEST_COUNTER.store(0, Ordering::SeqCst);
 
-        let mut publisher = EventPublisher::new();
+        let publisher = EventPublisher::new();
         publisher.subscribe(TestListener);
         publisher.subscribe(AnotherListener);
 
@@ -837,7 +806,7 @@ mod tests {
 
     #[test]
     fn test_listener_statistics() {
-        let mut publisher = EventPublisher::new();
+        let publisher = EventPublisher::new();
         publisher.subscribe(TestListener);
         publisher.subscribe(AnotherListener);
 

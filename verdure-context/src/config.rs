@@ -6,14 +6,13 @@
 
 use std::any::TypeId;
 use crate::error::{ContextError, ContextResult};
-use crate::profile::ProfileManager;
 use dashmap::{DashMap, DashSet};
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
-use verdure_ioc::{ComponentInstance, ComponentScope};
+use verdure_ioc::ComponentInstance;
 
 pub trait ConfigInitializer {
     fn from_config_manager(config_manager: Arc<ConfigManager>) -> ContextResult<Self>
@@ -252,9 +251,6 @@ pub struct ConfigManager {
     
     /// Cache invalidation tracking
     dirty_keys: Arc<DashSet<String>>,
-    
-    /// Profile manager for environment-specific configurations
-    profile_manager: Arc<RwLock<ProfileManager>>,
 }
 
 impl ConfigManager {
@@ -265,7 +261,6 @@ impl ConfigManager {
             cache: Arc::new(DashMap::new()),
             file_cache: Arc::new(DashMap::new()),
             dirty_keys: Arc::new(DashSet::new()),
-            profile_manager: Arc::new(RwLock::new(ProfileManager::new())),
         }
     }
 
@@ -400,22 +395,11 @@ impl ConfigManager {
     
     /// Internal method to compute and cache configuration values
     fn get_and_cache(&self, key: &str) -> Option<ConfigValue> {
-        {
-            let profile_manager = self.profile_manager.read();
-            if let Some(profile_value) = profile_manager.get_property(key) {
-                let value = ConfigValue::String(profile_value.to_string());
+        let sources = self.sources.read();
+        for source in sources.iter().rev() {
+            if let Some(value) = self.get_from_source(source, key) {
                 self.cache.insert(key.to_string(), value.clone());
                 return Some(value);
-            }
-        }
-        
-        {
-            let sources = self.sources.read();
-            for source in sources.iter().rev() {
-                if let Some(value) = self.get_from_source(source, key) {
-                    self.cache.insert(key.to_string(), value.clone());
-                    return Some(value);
-                }
             }
         }
         
@@ -583,63 +567,6 @@ impl ConfigManager {
         self.get_boolean(key).unwrap_or(default)
     }
 
-    /// Gets a reference to the profile manager
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use verdure_context::ConfigManager;
-    ///
-    /// let manager = ConfigManager::new();
-    /// let profile_manager = manager.profile_manager();
-    /// ```
-    /// Gets a read-only reference to the profile manager
-    ///
-    /// Uses a read lock to provide safe concurrent access.
-    /// For most operations, prefer specific methods like `active_profiles()`
-    /// which don't require holding the lock.
-    pub fn profile_manager(&self) -> parking_lot::RwLockReadGuard<'_, ProfileManager> {
-        self.profile_manager.read()
-    }
-
-    /// Gets a mutable reference to the profile manager
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use verdure_context::{ConfigManager, Profile};
-    /// use std::collections::HashMap;
-    ///
-    /// let mut manager = ConfigManager::new();
-    /// let profile = Profile::new("development", HashMap::new());
-    ///
-    /// manager.profile_manager_mut().add_profile(profile).unwrap();
-    /// ```
-    /// Gets a write lock to the profile manager
-    ///
-    /// Use this method sparingly and hold the lock for minimal time.
-    /// Most profile operations should go through specific methods.
-    pub fn profile_manager_mut(&self) -> parking_lot::RwLockWriteGuard<'_, ProfileManager> {
-        self.profile_manager.write()
-    }
-
-    /// Sets a configuration property
-    ///
-    /// # Arguments
-    ///
-    /// * `key` - The configuration key
-    /// * `value` - The configuration value
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use verdure_context::{ConfigManager, ConfigValue};
-    ///
-    /// let mut manager = ConfigManager::new();
-    /// manager.set("runtime.property", ConfigValue::String("value".to_string()));
-    ///
-    /// assert_eq!(manager.get_string("runtime.property").unwrap(), "value");
-    /// ```
     /// Sets a runtime configuration value
     pub fn set(&self, key: &str, value: ConfigValue) {
         self.cache.insert(key.to_string(), value);

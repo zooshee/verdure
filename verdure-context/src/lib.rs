@@ -12,7 +12,6 @@
 //!
 //! * **Application Context**: Centralized application state management
 //! * **Configuration Management**: Hierarchical configuration system with multiple sources
-//! * **Environment Profiles**: Support for different deployment environments
 //! * **Event Broadcasting**: Application-wide event system for decoupled communication
 //! * **IoC Integration**: Seamless integration with the Verdure IoC container
 //! * **Type-Safe Configuration**: Strongly-typed configuration value access
@@ -171,43 +170,14 @@
 //!
 //! # Advanced Features
 //!
-//! ## Environment Profiles
-//!
-//! ```rust
-//! use verdure_context::{ApplicationContext, Profile};
-//! use std::collections::HashMap;
-//!
-//! // Create profile-specific configurations
-//! let mut dev_props = HashMap::new();
-//! dev_props.insert("database.url".to_string(), "postgres://localhost/dev".to_string());
-//! dev_props.insert("logging.level".to_string(), "DEBUG".to_string());
-//! let dev_profile = Profile::new("development", dev_props);
-//!
-//! let mut prod_props = HashMap::new();
-//! prod_props.insert("database.url".to_string(), "postgres://prod-server/app".to_string());
-//! prod_props.insert("logging.level".to_string(), "INFO".to_string());
-//! let prod_profile = Profile::new("production", prod_props);
-//!
-//! let context = ApplicationContext::builder()
-//!     .with_profile(dev_profile)
-//!     .with_profile(prod_profile)
-//!     .with_active_profile("development")
-//!     .build()
-//!     .unwrap();
-//!
-//! // Configuration values will be resolved from active profile
-//! assert_eq!(context.get_config("logging.level"), "DEBUG");
-//! ```
-//!
 //! ## Configuration Sources Priority
 //!
 //! Configuration sources are resolved in the following order (highest to lowest precedence):
 //!
 //! 1. **Runtime Properties**: Values set via `set_config()`
-//! 2. **Active Profiles**: Profile-specific configuration properties
-//! 3. **Configuration Sources**: Sources added via `add_config_source()` (last added wins)
-//! 4. **Environment Variables**: System environment variables
-//! 5. **Configuration Files**: Files loaded via various methods (last added wins)
+//! 2. **Configuration Sources**: Sources added via `add_config_source()` (last added wins)
+//! 3. **Environment Variables**: System environment variables
+//! 4. **Configuration Files**: Files loaded via various methods (last added wins)
 //!    - TOML files (`.toml`)
 //!    - YAML files (`.yaml`, `.yml`)
 //!    - Properties files (`.properties`)
@@ -319,10 +289,9 @@
 //!         let container = context.container();
 //!         // Setup your components...
 //!         
-//!         // Check environment and profiles
+//!         // Check environment
 //!         let env = context.environment();
-//!         let profiles = context.active_profiles();
-//!         println!("🌍 Running in {} environment with profiles: {:?}", env, profiles);
+//!         println!("🌍 Running in {} environment", env);
 //!     }
 //! }
 //!
@@ -346,8 +315,8 @@
 //!
 //! impl ContextAwareEventListener<ContextInitializingEvent> for PreStartupListener {
 //!     fn on_context_event(&self, event: &ContextInitializingEvent, context: &ApplicationContext) {
-//!         println!("🔧 Context initializing with {} sources and {} profiles...",
-//!                  event.config_sources_count, event.active_profiles_count);
+//!         println!("🔧 Context initializing with {} sources...",
+//!                  event.config_sources_count);
 //!         
 //!         // Pre-initialization tasks
 //!         let startup_time = event.timestamp;
@@ -356,34 +325,6 @@
 //! }
 //! ```
 //!
-//! ## ProfileActivatedEvent Usage
-//!
-//! React to profile activation during context building:
-//!
-//! ```rust
-//! use verdure_context::{ApplicationContext, ProfileActivatedEvent, EventListener, Profile};
-//! use std::collections::HashMap;
-//!
-//! struct ProfileListener;
-//!
-//! impl EventListener<ProfileActivatedEvent> for ProfileListener {
-//!     fn on_event(&self, event: &ProfileActivatedEvent) {
-//!         println!("🔄 Profile '{}' activated with {} properties",
-//!                  event.profile_name, event.properties_count);
-//!     }
-//! }
-//!
-//! let mut props = HashMap::new();
-//! props.insert("env".to_string(), "production".to_string());
-//! let profile = Profile::new("production", props);
-//!
-//! let context = ApplicationContext::builder()
-//!     .with_profile(profile)
-//!     .with_active_profile("production")
-//!     .build()
-//!     .unwrap();
-//! // Profile activation event was published during build
-//! ```
 //!
 //! ## ConfigurationChangedEvent Usage
 //!
@@ -424,7 +365,6 @@ pub mod config;
 pub mod context;
 pub mod error;
 pub mod event;
-pub mod profile;
 
 // Re-export main types for convenience
 pub use config::{ConfigManager, ConfigSource, ConfigValue};
@@ -433,6 +373,5 @@ pub use error::{ContextError, ContextResult};
 pub use event::{
     AnyContextAwareEventListener, AnyEventListener, ConfigurationChangedEvent,
     ContextAwareEventListener, ContextInitializedEvent, ContextInitializingEvent, Event,
-    EventListener, EventPublisher, ProfileActivatedEvent,
+    EventListener, EventPublisher,
 };
-pub use profile::{Profile, ProfileManager};
