@@ -13,12 +13,12 @@ The project is currently in the foundational development phase. We are looking f
 
 ## Ecosystem Modules
 
-### ✅ Current Release (v0.0.1) - Foundation
+### ✅ Current Release (v0.0.5) - Application Context
 
 - **verdure-core**: Foundation types, error handling, and common utilities
-- **verdure-ioc**: Dependency injection container and component management  
+- **verdure-ioc**: Dependency injection container and component management
 - **verdure-macros**: Compile-time code generation and annotation processing
-- **verdure-context**: Application context and environment management (🚧)
+- **verdure-context**: Application context and configuration management
 
 ### 🚧 Upcoming Releases - Complete Ecosystem
 
@@ -42,7 +42,7 @@ The project is currently in the foundational development phase. We are looking f
 - verdure-oauth: OAuth2 and OpenID Connect integration
 
 
-## Current Features (v0.0.1)
+## Current Features (v0.0.5)
 
 - [x] **IoC Container**: Comprehensive dependency injection with automatic resolution
 - [x] **Component Lifecycle**: Singleton and prototype scopes with lifecycle events
@@ -50,10 +50,14 @@ The project is currently in the foundational development phase. We are looking f
 - [x] **Event System**: Container and component lifecycle event handling
 - [x] **Circular Dependency Detection**: Prevents infinite dependency loops
 - [x] **Thread Safety**: Full concurrent access support for multi-threaded applications
+- [x] **Application Context**: Comprehensive application context management and event system
+- [x] **Auto-Configuration**: Automatic configuration file reading and component assembly
+- [x] **Multi-Format Configuration Support**: YAML, TOML, and Properties file formats
+- [x] **Default Value Support**: `#[config_default]` and `#[config_default_t]` attributes
 
 ### 📋 Roadmap - Building the Complete Ecosystem
 
-- [ ] **Auto-Configuration**: Out-of-the-box application bootstrapping
+- [ ] **Auto-Configuration**: Out-of-the-box application bootstrapping and configuration management  🚧
 - [ ] **Web Framework**: MVC patterns and REST API development
 - [ ] **Data Access**: Repository patterns and ORM integration
 - [ ] **Security Framework**: Authentication and authorization
@@ -66,14 +70,138 @@ The project is currently in the foundational development phase. We are looking f
 ## Add Dependency
 
 ```toml
-verdure = "0.0.1"
+verdure = "0.0.5"
 inventory = "0.3"
 ```
 The underlying implementation heavily relies on inventory. Our thanks go to the authors of this excellent repository.
 
+## Context - Recommended
+### Quick Start
+#### Configuration - Automatic Configuration File Reading
+`application.yml` example file:
+```yaml
+server:
+  name: TestApp
+  port: 8080
+datasource:
+  host: 127.0.0.1
+  username: root
+  password: 123456
+  database: test
+```
+Structs with the `Configuration` derive are automatically registered as `Component` instances and will automatically read configuration and load it. If the key does not exist in the configuration file, it will use `config_default` or `config_default_t`. If there is no default value, it will be `None`.
+Note that field types must be wrapped with `Option<T>`.
+
+**Supported Configuration Formats**:
+- **YAML**: `.yml`, `.yaml` files
+- **TOML**: `.toml` files
+- **Properties**: `.properties` files
+
+**Default Value Attributes**:
+- `#[config_default(value)]`: Provide literal default values
+- `#[config_default_t(expression)]`: Provide expression-based default values, supporting complex calculations
+```rust
+use std::sync::Arc;
+use verdure::event::{ContextAwareEventListener, ContextInitializingEvent};
+use verdure::{ApplicationContext, ComponentFactory, Configuration};
+
+#[derive(Debug, Configuration)]
+#[configuration("server")]
+struct ServerConfig {
+    // server.name
+    name: Option<String>,
+    // server.port
+    #[config_default(8080)]
+    port: Option<u32>,
+}
+
+#[derive(Debug, Configuration)]
+#[configuration("datasource")]
+struct DatasourceConfig {
+    // datasource.host
+    #[config_default_t(Some(get_host()))]
+    host: Option<String>,
+    // datasource.port
+    #[config_default(3306)]
+    port: Option<u32>,
+    // datasource.username
+    #[config_default("......")]
+    username: Option<String>,
+    // datasource.password
+    #[config_default("......")]
+    password: Option<String>,
+    // datasource.database
+    #[config_default("test_db")]
+    database: Option<String>,
+}
+
+fn get_host() -> String {
+    "127.0.0.1".to_string()
+}
+```
+
+#### Advanced Configuration Features
+
+**Configuration Precedence** (from highest to lowest):
+1. Runtime Properties: Values set via `set_config()`
+2. Configuration Sources: Sources added via `add_config_source()` (last added wins)
+3. Environment Variables: System environment variables
+4. Configuration Files: Files loaded via various methods
+
+**Event System**:
+- `ContextInitializingEvent`: Triggered when context initialization begins
+- `ContextInitializedEvent`: Triggered when context initialization completes
+- `ConfigurationChangedEvent`: Triggered when configuration changes at runtime
+```
+#### ApplicationContext Initialization
+```rust
+struct ApplicationStartEvent;
+impl ContextAwareEventListener<ContextInitializingEvent> for ApplicationStartEvent {
+    fn on_context_event(&self, _event: &ContextInitializingEvent, context: &ApplicationContext) {
+        let container = context.container();
+        let datasource_config = container
+            .get_component::<DatasourceConfig>()
+            .expect("datasource config not found")
+            .clone();
+        // ... do something with datasource_config
+        // context.register_component(Arc::new(datasource_component));
+    }
+}
+
+fn init_context() -> Arc<ApplicationContext> {
+    let context = ApplicationContext::builder()
+        // Load configuration files (supports YAML, TOML, Properties formats)
+        .with_config_file("application.yml")
+        .build();
+    match context {
+        Ok(context) => {
+            context.subscribe_to_context_events(ApplicationStartEvent);
+            match context.initialize() {
+                Ok(_) => Arc::new(context),
+                Err(e) => {
+                    panic!("failed to initialize context: {}", e);
+                }
+            }
+        }
+        Err(e) => panic!("failed to new context: {}", e),
+    }
+}
+
+fn main() {
+    let context = init_context();
+    let server_config = context
+        .get_component::<ServerConfig>()
+        .expect("datasource config not found");
+    println!("server config: {:?}", server_config);
+    // ... do something with context
+    // get more component......
+}
+```
+
 ## IoC / DI
 
 ### Initialize the Container
+Recommended to use `ApplicationContext`
 ```rust
 use std::sync::Arc;
 

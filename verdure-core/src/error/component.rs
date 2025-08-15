@@ -1,5 +1,5 @@
 //! Component-specific error types and implementations
-//! 
+//!
 //! This module defines error types specifically related to component operations,
 //! including dependency resolution, instantiation, and lifecycle management.
 
@@ -7,15 +7,15 @@ use crate::error::container::{ContainerError, ContainerErrorKind};
 use std::fmt;
 
 /// Error types specific to component operations
-/// 
+///
 /// `ComponentError` represents various failure conditions that can occur during
 /// component creation, dependency injection, and component lifecycle management.
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust
 /// use verdure_core::error::component::ComponentError;
-/// 
+///
 /// let error = ComponentError::DependencyNotFound("DatabaseService".to_string());
 /// println!("{}", error); // Prints: "Dependency 'DatabaseService' not found"
 /// ```
@@ -99,7 +99,7 @@ mod tests {
             "Dependency 'TestDep' not found",
             "Failed to downcast dependency 'TestComponent'",
             "Circular dependency detected: A -> B -> A",
-            "Configuration error: Invalid config", 
+            "Configuration error: Invalid config",
             "Component creation error: Failed to create",
             "Component not found: ComponentX",
         ];
@@ -126,11 +126,26 @@ mod tests {
             .collect();
 
         assert!(matches!(component_errors[0], ComponentError::NotFound(_)));
-        assert!(matches!(component_errors[1], ComponentError::CircularDependency(_)));
-        assert!(matches!(component_errors[2], ComponentError::CreationError(_)));
-        assert!(matches!(component_errors[3], ComponentError::DowncastFailed(_)));
-        assert!(matches!(component_errors[4], ComponentError::ConfigurationError(_)));
-        assert!(matches!(component_errors[5], ComponentError::CreationError(_)));
+        assert!(matches!(
+            component_errors[1],
+            ComponentError::CircularDependency(_)
+        ));
+        assert!(matches!(
+            component_errors[2],
+            ComponentError::CreationError(_)
+        ));
+        assert!(matches!(
+            component_errors[3],
+            ComponentError::DowncastFailed(_)
+        ));
+        assert!(matches!(
+            component_errors[4],
+            ComponentError::ConfigurationError(_)
+        ));
+        assert!(matches!(
+            component_errors[5],
+            ComponentError::CreationError(_)
+        ));
     }
 
     #[test]
@@ -150,12 +165,19 @@ mod tests {
             .collect();
 
         assert_eq!(container_errors[0].kind, ContainerErrorKind::NotFound);
-        assert_eq!(container_errors[1].kind, ContainerErrorKind::CircularDependency);
+        assert_eq!(
+            container_errors[1].kind,
+            ContainerErrorKind::CircularDependency
+        );
         assert_eq!(container_errors[2].kind, ContainerErrorKind::CreationFailed);
         assert_eq!(container_errors[3].kind, ContainerErrorKind::TypeCastFailed);
         assert_eq!(container_errors[4].kind, ContainerErrorKind::Configuration);
         assert_eq!(container_errors[5].kind, ContainerErrorKind::NotFound);
-        assert!(container_errors[5].message.contains("Dependency: dependency"));
+        assert!(
+            container_errors[5]
+                .message
+                .contains("Dependency: dependency")
+        );
     }
 
     #[test]
@@ -163,8 +185,11 @@ mod tests {
         let original_container_error = ContainerError::circular_dependency("A -> B -> A");
         let component_error: ComponentError = original_container_error.into();
         let back_to_container: ContainerError = component_error.into();
-        
-        assert_eq!(back_to_container.kind, ContainerErrorKind::CircularDependency);
+
+        assert_eq!(
+            back_to_container.kind,
+            ContainerErrorKind::CircularDependency
+        );
         assert_eq!(back_to_container.message, "A -> B -> A");
     }
 }

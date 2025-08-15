@@ -1,20 +1,20 @@
 //! Container-specific error types and implementations
-//! 
+//!
 //! This module defines error types specifically related to IoC container operations,
 //! including component resolution, dependency injection, and lifecycle management.
 
 use std::fmt;
 
 /// The main error type for container operations
-/// 
+///
 /// `ContainerError` represents various failure conditions that can occur during
 /// container initialization, component creation, and dependency resolution.
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```rust
 /// use verdure_core::error::container::{ContainerError, ContainerErrorKind};
-/// 
+///
 /// let error = ContainerError::not_found("ComponentA not found");
 /// println!("{}", error); // Prints: "Component not found: ComponentA not found"
 /// ```
@@ -29,7 +29,7 @@ pub struct ContainerError {
 }
 
 /// Enumeration of different types of container errors
-/// 
+///
 /// This enum categorizes the various types of errors that can occur during
 /// container operations, making it easier to handle different error conditions
 /// appropriately.
@@ -78,17 +78,17 @@ impl std::error::Error for ContainerError {
 
 impl ContainerError {
     /// Creates a new ContainerError with the specified kind and message
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `kind` - The kind of error that occurred
     /// * `message` - A descriptive error message
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```rust
     /// use verdure_core::error::container::{ContainerError, ContainerErrorKind};
-    /// 
+    ///
     /// let error = ContainerError::new(ContainerErrorKind::NotFound, "Component missing");
     /// ```
     pub fn new<M: Into<String>>(kind: ContainerErrorKind, message: M) -> Self {
@@ -100,19 +100,19 @@ impl ContainerError {
     }
 
     /// Adds a source error to this ContainerError
-    /// 
+    ///
     /// This is useful for error chaining, where one error is caused by another.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `err` - The source error that caused this error
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```rust
     /// use verdure_core::error::container::ContainerError;
     /// use std::io::Error;
-    /// 
+    ///
     /// let io_error = Error::new(std::io::ErrorKind::NotFound, "file not found");
     /// let container_error = ContainerError::creation_failed("Failed to load config")
     ///     .with_source(io_error);
@@ -126,54 +126,54 @@ impl ContainerError {
     }
 
     /// Creates a new "not found" error
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `message` - A descriptive message about what was not found
     pub fn not_found<M: Into<String>>(message: M) -> Self {
         Self::new(ContainerErrorKind::NotFound, message)
     }
 
     /// Creates a new "circular dependency" error
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `message` - A descriptive message about the circular dependency
     pub fn circular_dependency<M: Into<String>>(message: M) -> Self {
         Self::new(ContainerErrorKind::CircularDependency, message)
     }
 
     /// Creates a new "creation failed" error
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `message` - A descriptive message about the creation failure
     pub fn creation_failed<M: Into<String>>(message: M) -> Self {
         Self::new(ContainerErrorKind::CreationFailed, message)
     }
 
     /// Creates a new "type cast failed" error
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `message` - A descriptive message about the type cast failure
     pub fn type_cast_failed<M: Into<String>>(message: M) -> Self {
         Self::new(ContainerErrorKind::TypeCastFailed, message)
     }
 
     /// Creates a new "configuration" error
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `message` - A descriptive message about the configuration error
     pub fn configuration<M: Into<String>>(message: M) -> Self {
         Self::new(ContainerErrorKind::Configuration, message)
     }
 
     /// Creates a new "other" error
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `message` - A descriptive message about the error
     pub fn other<M: Into<String>>(message: M) -> Self {
         Self::new(ContainerErrorKind::Other, message)
@@ -216,9 +216,9 @@ mod tests {
     #[test]
     fn test_container_error_with_source() {
         let source_error = std::io::Error::new(std::io::ErrorKind::NotFound, "file not found");
-        let error = ContainerError::creation_failed("Failed to create component")
-            .with_source(source_error);
-        
+        let error =
+            ContainerError::creation_failed("Failed to create component").with_source(source_error);
+
         assert_eq!(error.kind, ContainerErrorKind::CreationFailed);
         assert!(error.source.is_some());
     }
@@ -265,11 +265,26 @@ mod tests {
 
     #[test]
     fn test_error_kind_display() {
-        assert_eq!(ContainerErrorKind::NotFound.to_string(), "Component not found");
-        assert_eq!(ContainerErrorKind::CircularDependency.to_string(), "Circular dependency detected");
-        assert_eq!(ContainerErrorKind::CreationFailed.to_string(), "Component creation failed");
-        assert_eq!(ContainerErrorKind::TypeCastFailed.to_string(), "Type cast failed");
-        assert_eq!(ContainerErrorKind::Configuration.to_string(), "Configuration error");
+        assert_eq!(
+            ContainerErrorKind::NotFound.to_string(),
+            "Component not found"
+        );
+        assert_eq!(
+            ContainerErrorKind::CircularDependency.to_string(),
+            "Circular dependency detected"
+        );
+        assert_eq!(
+            ContainerErrorKind::CreationFailed.to_string(),
+            "Component creation failed"
+        );
+        assert_eq!(
+            ContainerErrorKind::TypeCastFailed.to_string(),
+            "Type cast failed"
+        );
+        assert_eq!(
+            ContainerErrorKind::Configuration.to_string(),
+            "Configuration error"
+        );
         assert_eq!(ContainerErrorKind::Other.to_string(), "Other error");
     }
 }

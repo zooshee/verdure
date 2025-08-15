@@ -14,3 +14,4 @@ description.workspace = true
 verdure-core = { workspace = true }
 verdure-ioc = { workspace = true }
 verdure-macros = { workspace = true }
+verdure-context = { workspace = true }
